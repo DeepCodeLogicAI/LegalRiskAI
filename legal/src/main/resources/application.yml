@@ -1,0 +1,68 @@
+server:  
+  port: 8484
+  tomcat:
+    max-part-count: 20
+
+spring:
+  application-name: legal
+
+  # Oracle DB
+  datasource:
+    driver-class-name: oracle.jdbc.OracleDriver
+    url: jdbc:oracle:thin:@192.168.0.21:1521/xe
+    username: legal
+    password: 1234
+    
+  #Jpa Setting
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.OracleDialect
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB
+      max-request-size: 200MB
+      file-size-threshold: 2KB # 파일 크기 임계값 설정 (이 크기를 초과하면 디스크에 저장)
+    #  max-file-count: 10 # 최대 10개까지 허용 FileCountLimitExceededException
+ 
+  # View Resolver
+  mvc:
+    view:
+      prefix: /WEB-INF/views/
+      suffix: .jsp
+
+#  security:
+#    user:
+#      name: test
+#      password: test
+
+  # gmail SMPT
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: team704gpt
+    password: aqsk zgyp mpuq dsee  # 앱 비밀번호
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls.enable: true
+      
+      
+logging.level:
+  org.hibernate.SQL: debug   # logger를 통해 하이버네이트 실행 SQL 
+  
+  
+#mybatis:
+#  config-location: classpath:configuration.xml
+#  mapper-locations: classpath:mappers/*.xml
+#  
+
+  
+#upload Folder
+com.oracle.legal.upload.path: upload
