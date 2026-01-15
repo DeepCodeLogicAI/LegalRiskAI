@@ -38,7 +38,8 @@ dependencies {
 	
 	// Mybatis
 	//implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.3'
-	//implementation 'org.modelmapper:modelmapper:3.1.1'
+	//JPA용 modelmapper
+	implementation 'org.modelmapper:modelmapper:3.1.1'
 	// Thumbnail
 	implementation 'net.coobird:thumbnailator:0.4.19'
   
