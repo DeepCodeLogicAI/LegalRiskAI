@@ -9,15 +9,13 @@ import jakarta.persistence.Id;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
+import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 @Entity
-@Getter
-@ToString
-@AllArgsConstructor
-@NoArgsConstructor
+@Data
 @Table(name = "client")					//테이블명 
 @SequenceGenerator (
 		name = "client_seq",				//JPA 시퀀스명
