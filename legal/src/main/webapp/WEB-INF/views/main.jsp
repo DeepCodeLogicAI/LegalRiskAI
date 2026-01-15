@@ -21,7 +21,6 @@
 
 <body>
 <div class="container py-5">
-
   <!-- Header / Hero -->
   <div class="hero p-4 p-md-5 mb-4">
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
@@ -31,11 +30,8 @@
       </div>
 
       <div class="d-flex gap-2">
-        <a class="btn btn-primary btn-lg" href="${pageContext.request.contextPath}/test">
-          Test로 이동
-        </a>
-        <a class="btn btn-outline-primary btn-lg" href="${pageContext.request.contextPath}/test2">
-          Test2로 이동
+        <a class="btn btn-primary btn-lg" href="${pageContext.request.contextPath}/law/lawMain">
+           법적위험 페이지로 이동 
         </a>
       </div>
     </div>
@@ -46,23 +42,12 @@
     <div class="col-md-6">
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body">
-          <h5 class="card-title fw-bold">Test</h5>
-          <p class="card-text text-muted">/test 로 이동하는 테스트 페이지입니다.</p>
-          <a class="btn btn-primary" href="${pageContext.request.contextPath}/test">열기</a>
+          <h5 class="card-title fw-bold">법적위험 페이지</h5>
+          <p class="card-text text-muted">법적위험 페이지로 이동하는 테스트 페이지입니다.</p>
+          <a class="btn btn-primary" href="${pageContext.request.contextPath}/law/lawMain">열기</a>
         </div>
       </div>
     </div>
-
-    <div class="col-md-6">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <h5 class="card-title fw-bold">Test2</h5>
-          <p class="card-text text-muted">/test2 로 이동하는 테스트 페이지입니다.</p>
-          <a class="btn btn-outline-primary" href="${pageContext.request.contextPath}/test2">열기</a>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- Footer -->
   <div class="text-center text-muted mt-5">
