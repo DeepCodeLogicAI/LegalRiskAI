@@ -7,6 +7,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Lob;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -55,9 +56,11 @@ public class Boonjang {
     @Column(name = "BOONJANG_DATE")
     private LocalDateTime boonjangDate;
     
-    @Column(name = "BOONJANG_INPUT", length = 255)
+    @Lob
+    @Column(name = "BOONJANG_INPUT")
     private String boonjangInput;
     
-    @Column(name = "BOONJANG_OUTPUT", length = 255)
+    @Lob
+    @Column(name = "BOONJANG_OUTPUT")
     private String boonjangOutput;
 }
