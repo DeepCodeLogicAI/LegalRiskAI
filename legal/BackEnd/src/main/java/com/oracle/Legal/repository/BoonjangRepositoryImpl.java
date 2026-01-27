@@ -53,5 +53,25 @@ public class BoonjangRepositoryImpl implements BoonjangRepository {
         .setParameter("cc", clientCode)
         .getResultList();
     }
+
+	@Override
+	public void deleteById(int code) {
+	    Boonjang boonjang = em.find(Boonjang.class, code);
+	    if (boonjang != null) {
+	        em.remove(boonjang);
+	    }
+	}
+
+	@Override
+    public void toggleMark(int code) {
+        em.createQuery("""
+            update Boonjang b
+            set b.boonjang_mark =
+                case when b.boonjang_mark = 1 then 0 else 1 end
+            where b.boonjang_code = :code
+        """)
+        .setParameter("code", code)
+        .executeUpdate();
+    }
 	
 }

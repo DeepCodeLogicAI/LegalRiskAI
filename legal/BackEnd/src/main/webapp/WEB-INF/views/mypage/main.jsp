@@ -6,8 +6,6 @@
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
 <%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
 
-
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -66,11 +64,16 @@
     color:#64748b;
     font-weight:700;
     white-space: nowrap;
+    position: relative;    /* ✅ 클릭 막힘 방지 */
+    z-index: 5;            /* ✅ 클릭 막힘 방지 */
   }
   .table tbody td{
     font-size: 14px;
     vertical-align: middle;
   }
+
+  /* ★ 버튼 */
+  .star-btn { border:0; background:transparent; padding:0; cursor:pointer; }
 </style>
 </head>
 
@@ -105,13 +108,13 @@
 <div class="container py-4 py-md-5 flex-grow-1">
   <div class="row g-4">
 
-    <!-- ================= LEFT : USER PROFILE ================= -->
+    <!-- LEFT -->
     <div class="col-12 col-lg-4">
       <div class="glass p-4">
         <div class="d-flex align-items-center gap-3 mb-3">
           <div class="avatar">👤</div>
           <div>
-			<div class="fw-bold fs-4">${user.client_name}</div>
+            <div class="fw-bold fs-4">${user.client_name}</div>
             <div class="text-muted small"><%= username %></div>
           </div>
         </div>
@@ -123,7 +126,7 @@
           </div>
           <div class="kv">
             <div class="k">총 분석 횟수</div>
-			<div class="v">${totalCount} 회</div>
+            <div class="v">${totalCount} 회</div>
           </div>
         </div>
 
@@ -133,7 +136,7 @@
       </div>
     </div>
 
-    <!-- ================= RIGHT : ANALYSIS HISTORY ================= -->
+    <!-- RIGHT -->
     <div class="col-12 col-lg-8">
       <div class="glass p-4">
         <div class="mb-3">
@@ -141,151 +144,177 @@
           <div class="text-muted small">client_code 기준으로 분석 내역이 표시됩니다.</div>
         </div>
 
-        <!-- 검색 / 기간 필터 (UI만) -->
-        <div class="row g-2 mb-3">
-          <div class="col-md-6">
-            <input type="text" class="form-control" placeholder="사건 내용 키워드 검색...">
+        <!-- 필터 + 선택삭제 -->
+        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+          <div class="d-flex gap-2 align-items-center">
+            <select class="form-select form-select-sm" style="width: 180px;"
+              onchange="location.href='${pageContext.request.contextPath}/mypage?serviceType=' + this.value + '&page=1';">
+              <option value="">전체</option>
+              <option value="JOGI" ${param.serviceType == 'JOGI' ? 'selected' : ''}>조기위험</option>
+              <option value="LAW" ${param.serviceType == 'LAW' ? 'selected' : ''}>법적위험</option>
+              <option value="BOONJANG" ${param.serviceType == 'BOONJANG' ? 'selected' : ''}>분쟁위험</option>
+              <option value="YUSA" ${param.serviceType == 'YUSA' ? 'selected' : ''}>유사판례</option>
+            </select>
           </div>
-          <div class="col-md-3">
-            <input type="date" class="form-control">
-          </div>
-          <div class="col-md-3">
-            <input type="date" class="form-control">
-          </div>
+
+          <!-- 삭제 버튼은 bulkForm submit -->
+          <button type="submit" form="bulkForm" class="btn btn-sm btn-outline-danger"
+                  onclick="return confirm('선택한 항목을 삭제하시겠습니까?');">
+            선택 삭제
+          </button>
         </div>
 
-        <!-- 테이블 -->
-        <div class="table-responsive">
-          <table class="table align-middle mb-0">
-            <thead>
-              <tr>
-                <th style="width:120px;">작성일자</th>
-                <th>사건 요약</th>		
-                <th style="width:120px;">서비스 종류</th>
-                <th>관련 법률 요약</th>
-                <th style="width:60px; text-align:center;">★</th>
-                <th style="width:90px;">작업</th>
-              </tr>
-            </thead>
-					<tbody>
-					  <c:choose>
-					    <c:when test="${empty historyList}">
-					      <tr>
-					        <td colspan="6" class="text-muted text-center py-4">분석 이력이 없습니다.</td>
-					      </tr>
-					    </c:when>
-					
-					    <c:otherwise>
-					      <c:forEach var="h" items="${historyList}">
-					        <tr>
-					          <!-- 작성일자 (null-safe) -->
-					          <td class="text-muted" style="white-space:nowrap;">
-					            <c:choose>
-					              <c:when test="${not empty h.analysisDate}">
-					                <fmt:formatDate value="${h.analysisDate}" pattern="yyyy-MM-dd"/>
-					              </c:when>
-					              <c:otherwise>-</c:otherwise>
-					            </c:choose>
-					          </td>
-					
-					          <!-- 사건 요약 -->
-								<td>
-								  <c:choose>
-								    <c:when test="${fn:length(h.input) > 10}">
-								      <c:out value="${fn:substring(h.input, 0, 10)}"/>...
-								    </c:when>
-								    <c:otherwise>
-								      <c:out value="${h.input}"/>
-								    </c:otherwise>
-								  </c:choose>
-								</td>
+        <!-- ✅ 삭제용 FORM 하나만 사용 (중첩 form 금지) -->
+        <form id="bulkForm" method="post" action="${pageContext.request.contextPath}/mypage/history/delete">
+          <!-- 현재 페이지/필터 유지 -->
+          <input type="hidden" name="page" value="${page}">
+          <input type="hidden" name="serviceTypeFilter" value="${param.serviceType}">
 
-					          <!-- 서비스 종류 -->
-							<td>
-							  <c:choose>
-							    <c:when test="${h.serviceType == 'JOGI'}">
-							      <span class="chip" style="background:#ecfeff; color:#0e7490;">조기위험</span>
-							    </c:when>
-							    <c:when test="${h.serviceType == 'LAW'}">
-							      <span class="chip" style="background:#fef2f2; color:#b91c1c;">법적위험</span>
-							    </c:when>
-							    <c:when test="${h.serviceType == 'BOONJANG'}">
-							      <span class="chip" style="background:#fefce8; color:#a16207;">분쟁위험</span>
-							    </c:when>
-							    <c:when test="${h.serviceType == 'YUSA'}">
-							      <span class="chip" style="background:#eef2ff; color:#1d4ed8;">유사판례</span>
-							    </c:when>
-							    <c:otherwise>
-							      <span class="chip">기타</span>
-							    </c:otherwise>
-							  </c:choose>
-							</td>
-					          <!-- 관련 법률 요약 -->
-								<td class="text-muted">
-								  <c:choose>
-								    <c:when test="${fn:length(h.output) > 10}">
-								      <c:out value="${fn:substring(h.output, 0, 10)}"/>...
-								    </c:when>
-								    <c:otherwise>
-								      <c:out value="${h.output}"/>
-								    </c:otherwise>
-								  </c:choose>
-								</td>
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead>
+                <tr>
+                  <th style="width:40px; text-align:center;">
+                    <input type="checkbox" id="checkAll">
+                  </th>
+                  <th style="width:120px;">작성일자</th>
+                  <th>사건 요약</th>
+                  <th style="width:120px;">서비스 종류</th>
+                  <th>관련 법률 요약</th>
+                  <th style="width:60px; text-align:center;">★</th>
+                  <th style="width:90px;">작업</th>
+                </tr>
+              </thead>
 
-					          <!-- ★ -->
-					          <td class="text-center">
-					            <c:choose>
-					              <c:when test="${h.mark == 1}">
-					                <span style="color:#f59e0b;">★</span>
-					              </c:when>
-					              <c:otherwise>
-					                <span style="color:#d1d5db;">☆</span>
-					              </c:otherwise>
-					            </c:choose>
-					          </td>
-					
-					          <!-- 작업 -->
-					          <td>
-							<button type="button" class="btn btn-sm btn-outline-primary"
-							  onclick="window.open(
-							    '${pageContext.request.contextPath}/mypage/history/${h.serviceType}/${h.serviceCode}',
-							    'detail_${h.serviceType}_${h.serviceCode}',
-							    'width=900,height=700,scrollbars=yes'
-							  )">
-							  상세보기
-							</button>
-					          </td>
-					        </tr>
-					      </c:forEach>
-					    </c:otherwise>
-					  </c:choose>
-					</tbody>
-          </table>
-        </div>
+              <tbody>
+                <c:choose>
+                  <c:when test="${empty historyList}">
+                    <tr>
+                      <td colspan="7" class="text-muted text-center py-4">분석 이력이 없습니다.</td>
+                    </tr>
+                  </c:when>
 
+                  <c:otherwise>
+                    <c:forEach var="h" items="${historyList}">
+                      <tr>
+                        <!-- 체크 -->
+                        <td class="text-center">
+                          <input type="checkbox" name="selectedKeys" value="${h.serviceType}:${h.serviceCode}">
+                        </td>
+
+                        <!-- 작성일자 -->
+                        <td class="text-muted" style="white-space:nowrap;">
+                          <c:choose>
+                            <c:when test="${not empty h.analysisDate}">
+                              <fmt:formatDate value="${h.analysisDate}" pattern="yyyy-MM-dd"/>
+                            </c:when>
+                            <c:otherwise>-</c:otherwise>
+                          </c:choose>
+                        </td>
+
+                        <!-- 사건 요약 -->
+                        <td>
+                          <c:choose>
+                            <c:when test="${fn:length(h.input) > 10}">
+                              <c:out value="${fn:substring(h.input, 0, 10)}"/>...
+                            </c:when>
+                            <c:otherwise>
+                              <c:out value="${h.input}"/>
+                            </c:otherwise>
+                          </c:choose>
+                        </td>
+
+                        <!-- 서비스 종류 -->
+                        <td>
+                          <c:choose>
+                            <c:when test="${h.serviceType == 'JOGI'}">
+                              <span class="chip" style="background:#ecfeff; color:#0e7490;">조기위험</span>
+                            </c:when>
+                            <c:when test="${h.serviceType == 'LAW'}">
+                              <span class="chip" style="background:#fef2f2; color:#b91c1c;">법적위험</span>
+                            </c:when>
+                            <c:when test="${h.serviceType == 'BOONJANG'}">
+                              <span class="chip" style="background:#fefce8; color:#a16207;">분쟁위험</span>
+                            </c:when>
+                            <c:when test="${h.serviceType == 'YUSA'}">
+                              <span class="chip" style="background:#eef2ff; color:#1d4ed8;">유사판례</span>
+                            </c:when>
+                            <c:otherwise>
+                              <span class="chip">기타</span>
+                            </c:otherwise>
+                          </c:choose>
+                        </td>
+
+                        <!-- 관련 법률 요약 -->
+                        <td class="text-muted">
+                          <c:choose>
+                            <c:when test="${fn:length(h.output) > 10}">
+                              <c:out value="${fn:substring(h.output, 0, 10)}"/>...
+                            </c:when>
+                            <c:otherwise>
+                              <c:out value="${h.output}"/>
+                            </c:otherwise>
+                          </c:choose>
+                        </td>
+
+                        <!-- ★ 토글 (✅ form 중첩 제거: JS로 POST) -->
+                        <td class="text-center">
+                          <button type="button" class="star-btn"
+                                  onclick="toggleMark('${h.serviceType}', '${h.serviceCode}')"
+                                  title="즐겨찾기 토글">
+                            <c:choose>
+                              <c:when test="${h.mark == 1}">
+                                <span style="color:#f59e0b; font-size:18px;">★</span>
+                              </c:when>
+                              <c:otherwise>
+                                <span style="color:#d1d5db; font-size:18px;">☆</span>
+                              </c:otherwise>
+                            </c:choose>
+                          </button>
+                        </td>
+
+                        <!-- 작업 -->
+                        <td>
+                          <button type="button" class="btn btn-sm btn-outline-primary"
+                            onclick="window.open(
+                              '${pageContext.request.contextPath}/mypage/history/${h.serviceType}/${h.serviceCode}',
+                              'detail_${h.serviceType}_${h.serviceCode}',
+                              'width=900,height=700,scrollbars=yes'
+                            )">
+                            상세보기
+                          </button>
+                        </td>
+                      </tr>
+                    </c:forEach>
+                  </c:otherwise>
+                </c:choose>
+              </tbody>
+            </table>
+          </div>
+        </form>
+
+        <!-- 페이징 (page + serviceType 유지) -->
         <div class="d-flex justify-content-between align-items-center mt-3">
-		<div class="text-muted small">총 ${totalCount}건</div>
-        <ul class="pagination pagination-sm mb-0">
+          <div class="text-muted small">총 ${totalCount}건</div>
 
-		  <!-- 이전 -->
-		  <li class="page-item ${page <= 1 ? 'disabled' : ''}">
-		    <a class="page-link" href="${pageContext.request.contextPath}/mypage?page=${page-1}">‹</a>
-		  </li>
-		
-		  <!-- 페이지 번호들 (단순하게 전체 표시) -->
-		  <c:forEach var="p" begin="1" end="${totalPages}">
-		    <li class="page-item ${p == page ? 'active' : ''}">
-		      <a class="page-link" href="${pageContext.request.contextPath}/mypage?page=${p}">${p}</a>
-		    </li>
-		  </c:forEach>
-		
-		  <!-- 다음 -->
-		  <li class="page-item ${page >= totalPages ? 'disabled' : ''}">
-		    <a class="page-link" href="${pageContext.request.contextPath}/mypage?page=${page+1}">›</a>
-		  </li>
-		
-		</ul>
+          <ul class="pagination pagination-sm mb-0">
+            <li class="page-item ${page <= 1 ? 'disabled' : ''}">
+              <a class="page-link"
+                 href="${pageContext.request.contextPath}/mypage?page=${page-1}&serviceType=${param.serviceType}">‹</a>
+            </li>
 
+            <c:forEach var="p" begin="1" end="${totalPages}">
+              <li class="page-item ${p == page ? 'active' : ''}">
+                <a class="page-link"
+                   href="${pageContext.request.contextPath}/mypage?page=${p}&serviceType=${param.serviceType}">${p}</a>
+              </li>
+            </c:forEach>
+
+            <li class="page-item ${page >= totalPages ? 'disabled' : ''}">
+              <a class="page-link"
+                 href="${pageContext.request.contextPath}/mypage?page=${page+1}&serviceType=${param.serviceType}">›</a>
+            </li>
+          </ul>
         </div>
 
       </div>
@@ -297,5 +326,61 @@
 <jsp:include page="/WEB-INF/views/common/footer.jsp"/>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+/** ✅ ★ 토글: 현재 page/serviceType 유지해서 POST */
+function toggleMark(serviceType, serviceCode) {
+  const f = document.createElement("form");
+  f.method = "post";
+  f.action = "${pageContext.request.contextPath}/mypage/history/mark/toggle";
+
+  const page = "${page}";
+  const filter = "${param.serviceType}";
+
+  const inputs = [
+    ["serviceType", serviceType],
+    ["serviceCode", serviceCode],
+    ["page", page],
+    ["serviceTypeFilter", filter]
+  ];
+
+  inputs.forEach(([k, v]) => {
+    const i = document.createElement("input");
+    i.type = "hidden";
+    i.name = k;
+    i.value = (v == null ? "" : v);
+    f.appendChild(i);
+  });
+
+  document.body.appendChild(f);
+  f.submit();
+}
+
+/** ✅ 체크박스 전체선택 */
+document.addEventListener("DOMContentLoaded", function () {
+  const checkAll = document.getElementById("checkAll");
+  if (!checkAll) return;
+
+  function syncCheckAll() {
+    const all = document.querySelectorAll("input[name='selectedKeys']");
+    const checked = document.querySelectorAll("input[name='selectedKeys']:checked");
+    checkAll.checked = (all.length > 0 && all.length === checked.length);
+  }
+
+  checkAll.addEventListener("change", function () {
+    const items = document.querySelectorAll("input[name='selectedKeys']");
+    items.forEach(item => item.checked = checkAll.checked);
+  });
+
+  document.addEventListener("change", function (e) {
+    if (e.target && e.target.name === "selectedKeys") {
+      syncCheckAll();
+    }
+  });
+
+  syncCheckAll();
+});
+</script>
+
 </body>
 </html>

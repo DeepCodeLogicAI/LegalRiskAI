@@ -1,5 +1,7 @@
 package com.oracle.Legal.controller;
 
+import java.util.List;
+
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
@@ -119,6 +121,26 @@ public class MypageController {
         request.getSession().invalidate();
 
         return "redirect:/logout";
+    }
+    
+    //이력 삭제
+    @PostMapping("/history/delete")
+    public String delete(@RequestParam(value="selectedKeys", required=false) List<String> selectedKeys) {
+        myPageService.bulkDelete(selectedKeys);
+        return "redirect:/mypage";
+    }
+
+    //즐겨찾기 
+    @PostMapping("/history/mark/toggle")
+    public String toggleMark(@RequestParam("serviceType") String serviceType,
+                             @RequestParam("serviceCode") int serviceCode,
+                             @RequestParam(value="page", defaultValue="1") int page,
+                             @RequestParam(value="serviceTypeFilter", required=false) String filter) {
+
+        myPageService.toggleMark(serviceType, serviceCode);
+
+        return "redirect:/mypage?page=" + page
+             + (filter != null && !filter.isBlank() ? "&serviceType=" + filter : "");
     }
 
 

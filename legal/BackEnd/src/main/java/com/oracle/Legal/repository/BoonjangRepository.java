@@ -21,4 +21,8 @@ public interface BoonjangRepository {
 
 	// 분쟁위험 리스트
 	List<Boonjang> findHistory(int clientCode);
+	//이력삭제
+	void deleteById(int code);
+	//즐겨찾기 토글 
+	void toggleMark(int code);
 }

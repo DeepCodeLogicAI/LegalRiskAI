@@ -49,6 +49,23 @@ public class LawRepositoryImpl implements LawRepository {
         .getResultList();
     }
 
+    @Override
+    public void deleteById(int code) {
+        Law law = em.find(Law.class, code);
+        if (law != null) {
+            em.remove(law);
+        }
+    }
 
-
+	@Override
+    public void toggleMark(int code) {
+        em.createQuery("""
+            update Law l
+            set l.law_mark =
+                case when l.law_mark = 1 then 0 else 1 end
+            where l.law_code = :code
+        """)
+        .setParameter("code", code)
+        .executeUpdate();
+    }
 }

@@ -10,6 +10,7 @@ import com.oracle.Legal.dto.HistoryDto;
 import com.oracle.Legal.dto.HistoryPageDto;
 import com.oracle.Legal.repository.*;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
@@ -174,4 +175,60 @@ public class MyPageService {
 
 
 	}
+	
+	
+
+    @Transactional
+    public void deleteLaw(int code) {
+        lawRepository.deleteById(code);
+    }
+
+    @Transactional
+    public void deleteYusa(int code) {
+        yusaRepository.deleteById(code);
+    }
+
+    @Transactional
+    public void deleteJogi(int code) {
+        jogiRepository.deleteById(code);
+    }
+
+    @Transactional
+    public void deleteBoonjang(int code) {
+        boonjangRepository.deleteById(code);
+    }
+    
+	@Transactional
+	public void bulkDelete(List<String> selectedKeys) {
+	    if (selectedKeys == null || selectedKeys.isEmpty()) return;
+
+	    for (String key : selectedKeys) {
+	        String[] parts = key.split(":");
+	        if (parts.length != 2) continue;
+
+	        String type = parts[0].toUpperCase();
+	        int code = Integer.parseInt(parts[1]);
+
+	        switch (type) {
+	            case "LAW" -> deleteLaw(code);
+	            case "YUSA" -> deleteYusa(code);
+	            case "JOGI" -> deleteJogi(code);
+	            case "BOONJANG" -> deleteBoonjang(code);
+	        }
+	    }
+	}
+
+	@Transactional
+	public void toggleMark(String type, int code) {
+	    String t = type.toUpperCase();
+
+	    switch (t) {
+	        case "LAW" -> lawRepository.toggleMark(code);
+	        case "YUSA" -> yusaRepository.toggleMark(code);
+	        case "JOGI" -> jogiRepository.toggleMark(code);
+	        case "BOONJANG" -> boonjangRepository.toggleMark(code);
+	        default -> throw new IllegalArgumentException("unknown type: " + type);
+	    }
+	}
+
 }

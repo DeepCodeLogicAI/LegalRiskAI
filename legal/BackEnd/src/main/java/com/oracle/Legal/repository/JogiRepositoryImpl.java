@@ -48,4 +48,24 @@ public class JogiRepositoryImpl implements JogiRepository {
         .setParameter("cc", clientCode)
         .getResultList();
     }
+    
+    @Override
+    public void deleteById(int code) {
+        Jogi jogi = em.find(Jogi.class, code);
+        if (jogi != null) {
+            em.remove(jogi);
+        }
+    }
+
+	@Override
+    public void toggleMark(int code) {
+        em.createQuery("""
+            update Jogi j
+            set j.jogi_mark =
+                case when j.jogi_mark = 1 then 0 else 1 end
+            where j.jogi_code = :code
+        """)
+        .setParameter("code", code)
+        .executeUpdate();
+    }
 }

@@ -49,4 +49,24 @@ public class YusaRepositoryImpl implements YusaRepository {
         .setParameter("cc", clientCode)
         .getResultList();
     }
+    
+    @Override
+    public void deleteById(int code) {
+        Yusa yusa = em.find(Yusa.class, code);
+        if (yusa != null) {
+            em.remove(yusa);
+        }
+    }
+
+	@Override
+	public void toggleMark(int code) {
+	        em.createQuery("""
+	            update Yusa y
+	            set y.yusa_mark =
+	                case when y.yusa_mark = 1 then 0 else 1 end
+	            where y.yusa_code = :code
+	        """)
+	        .setParameter("code", code)
+	        .executeUpdate();
+	    }
 }
