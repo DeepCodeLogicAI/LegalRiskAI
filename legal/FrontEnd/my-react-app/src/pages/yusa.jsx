@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import axios from "axios";
 
 export default function Yusa() {
+  /* =========================
+     상태값
+  ========================= */
   const [caseType, setCaseType] = useState("민사");
   const [inputText, setInputText] = useState("");
   const [aiResult, setAiResult] = useState(null);
@@ -10,12 +13,23 @@ export default function Yusa() {
   const [showCases, setShowCases] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
 
+  // 저장 / 즐겨찾기
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null);
+  // { success: boolean, message: string }
+
+  /* =========================
+     리스크 매핑
+  ========================= */
   const riskMap = {
     LOW: { score: 25, bar: "bg-green-500", text: "text-green-600" },
     MEDIUM: { score: 55, bar: "bg-yellow-500", text: "text-yellow-600" },
     HIGH: { score: 80, bar: "bg-red-500", text: "text-red-600" },
   };
 
+  /* =========================
+     AI 분석
+  ========================= */
   const handleAnalyze = async () => {
     if (!inputText.trim()) {
       alert("사건 내용을 입력하세요.");
@@ -24,6 +38,7 @@ export default function Yusa() {
 
     setLoading(true);
     setAiResult(null);
+    setSaveStatus(null);
 
     try {
       const res = await axios.post("/api/ai/analyze", {
@@ -31,7 +46,7 @@ export default function Yusa() {
         case_text: inputText,
       });
 
-      console.log("AI RESPONSE", res.data); // ★ 반드시 확인
+      console.log("AI RESPONSE", res.data);
       setAiResult(res.data);
     } catch (e) {
       console.error(e);
@@ -41,6 +56,45 @@ export default function Yusa() {
     }
   };
 
+  /* =========================
+     결과 저장
+  ========================= */
+  const handleSaveYusa = async () => {
+    if (!aiResult) {
+      alert("먼저 AI 분석을 실행하세요.");
+      return;
+    }
+
+    setSaveStatus(null);
+
+    const saveRequest = {
+      yusa_input: inputText,
+      yusa_output: aiResult.summary,
+      yusa_mark: isFavorite ? 1 : 0,
+      caseType: caseType,
+    };
+
+    try {
+      const res = await axios.post("/api/yusa/save", saveRequest, {
+        withCredentials: true,
+      });
+
+      setSaveStatus({
+        success: true,
+        message: `저장 완료! yusa_code = ${res.data}`,
+      });
+    } catch (e) {
+      console.error(e);
+      setSaveStatus({
+        success: false,
+        message: "저장 실패: 서버 오류",
+      });
+    }
+  };
+
+  /* =========================
+     요약 강조
+  ========================= */
   const highlightSummary = (text = "") =>
     text.split("\n").map((line, i) => (
       <p
@@ -57,11 +111,14 @@ export default function Yusa() {
 
   const risk = aiResult ? riskMap[aiResult.overall_risk_level] : null;
 
+  /* =========================
+     렌더링
+  ========================= */
   return (
     <div className="bg-gray-50 min-h-screen p-6">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {/* 입력 */}
+        {/* 입력 영역 */}
         <div className="bg-white rounded-xl p-6 border shadow-sm flex flex-col">
           <h2 className="font-bold mb-3">📝 사건 입력</h2>
 
@@ -91,7 +148,7 @@ export default function Yusa() {
           </button>
         </div>
 
-        {/* 결과 */}
+        {/* 결과 영역 */}
         <div className="bg-white rounded-xl p-6 border shadow-sm flex flex-col">
           <h2 className="font-bold mb-3">📊 분석 결과</h2>
 
@@ -134,7 +191,7 @@ export default function Yusa() {
                   </button>
 
                   {showCases && (
-                    <ul className="space-y-2 text-sm">
+                    <ul className="space-y-2 text-sm mb-3">
                       {aiResult.similar_cases.map((c, i) => (
                         <li
                           key={i}
@@ -151,12 +208,45 @@ export default function Yusa() {
                   )}
                 </>
               )}
+
+              {/* 즐겨찾기 + 저장 */}
+              <div className="flex justify-between items-center mt-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={isFavorite}
+                    onChange={(e) => setIsFavorite(e.target.checked)}
+                  />
+                  <span className="text-sm">즐겨찾기 추가</span>
+                </div>
+
+                <button
+                  onClick={handleSaveYusa}
+                  className="px-4 py-2 bg-green-500 text-white rounded text-sm font-bold"
+                >
+                  결과 저장
+                </button>
+              </div>
+
+              {/* 저장 상태 */}
+              {saveStatus && (
+                <div
+                  className={`mt-3 p-3 rounded text-sm font-bold ${
+                    saveStatus.success
+                      ? "bg-blue-50 text-blue-600"
+                      : "bg-red-50 text-red-600"
+                  }`}
+                >
+                  {saveStatus.success ? "✅ " : "❌ "}
+                  {saveStatus.message}
+                </div>
+              )}
             </>
           )}
         </div>
       </div>
 
-      {/* 모달 */}
+      {/* 판례 모달 */}
       {selectedCase && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded w-[500px]">
