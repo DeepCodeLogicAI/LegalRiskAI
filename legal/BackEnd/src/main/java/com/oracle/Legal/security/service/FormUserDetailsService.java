@@ -62,6 +62,10 @@ public class FormUserDetailsService implements UserDetailsService {
 
                 displayName = clientDto.getClient_name();
             }
+            
+            if (clientDto == null || clientDto.getClient_is_del() != 0) {
+                throw new UsernameNotFoundException("아이디나 비밀번호를 확인해주세요.");
+            }
         }
 
         accountDto.setDisplayName(displayName);

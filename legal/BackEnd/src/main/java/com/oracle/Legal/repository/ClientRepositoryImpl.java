@@ -40,6 +40,8 @@ public class ClientRepositoryImpl implements ClientRepository {
 		        dto.setClient_email(c.getClient_email());
 		        dto.setClient_tel(c.getClient_tel());
 		        dto.setClient_job(c.getClient_job());
+		        dto.setClient_is_del(c.getClient_is_del());  
+
 		        
 		        return dto;
 

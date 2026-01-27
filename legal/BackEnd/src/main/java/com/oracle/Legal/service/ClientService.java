@@ -10,6 +10,8 @@ public interface ClientService {
 
 	void updateUser(ClientDto clientDto);
 
+	void clientDel(int clientCode);
+
 	
 
 

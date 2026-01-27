@@ -18,6 +18,7 @@ import com.oracle.Legal.dto.HistoryPageDto;
 import com.oracle.Legal.service.ClientService;
 import com.oracle.Legal.service.MyPageService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Controller
@@ -107,5 +108,18 @@ public class MypageController {
         return "redirect:/mypage/user";
     }
     
+    //회원 탈퇴 
+    @PostMapping("/clientDel")
+    public String clientDel(
+            @RequestParam("client_code") int clientCode,
+            HttpServletRequest request) {
+
+        clientService.clientDel(clientCode);
+
+        request.getSession().invalidate();
+
+        return "redirect:/logout";
+    }
+
 
 }

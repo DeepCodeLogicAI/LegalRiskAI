@@ -10,6 +10,7 @@ import com.oracle.Legal.dto.ClientDto;
 import com.oracle.Legal.repository.AccountRepository;
 import com.oracle.Legal.repository.ClientRepository;
 
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
@@ -22,6 +23,7 @@ public class ClientServiceImpl implements ClientService {
 	private final AccountRepository accountRepository;
 	private final ModelMapper modelMapper;
 	private final PasswordEncoder passwordEncoder;
+	private final EntityManager em;
 
 	
 	@Override
@@ -68,8 +70,18 @@ public class ClientServiceImpl implements ClientService {
 	    client.changeClient_email(clientDto.getClient_email());
 	    client.changeClient_tel(clientDto.getClient_tel());
 	    client.changeClient_job(clientDto.getClient_job());
+	    
 	}
 
+
+    @Override
+    public void clientDel(int clientCode) {
+        em.createQuery(
+            "update Client c set c.client_is_del = 1 where c.client_code = :clientCode"
+        )
+        .setParameter("clientCode", clientCode)
+        .executeUpdate();
+    }
 	
 
 }
