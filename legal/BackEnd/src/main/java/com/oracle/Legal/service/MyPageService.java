@@ -77,15 +77,76 @@ public class MyPageService {
         list.sort((a, b) -> b.getAnalysisDate().compareTo(a.getAnalysisDate())); return list;
     }
     
-    //페이징
-    public HistoryPageDto getHistoryPage(int client_code, int page, int size) {
-        // 1) 전체 목록 만들기(지금 작성하신 getAllHistory 재사용)
-        List<HistoryDto> all = getAllHistory(client_code);
+    //타입별 조회 
+    private List<HistoryDto> getHistoryByType(int clientCode, String serviceType) {
 
-        int totalCount = all.size();
+        List<HistoryDto> list = new ArrayList<>();
+        String t = serviceType.toUpperCase();
+
+        switch (t) {
+            case "LAW" -> lawRepository.findHistory(clientCode).forEach(l ->
+                list.add(HistoryDto.builder()
+                    .serviceType("LAW")
+                    .serviceCode((long) l.getLaw_code())
+                    .analysisDate(java.sql.Timestamp.valueOf(l.getLaw_date()))
+                    .input(l.getLaw_input())
+                    .output(l.getLaw_output())
+                    .mark(l.getLaw_mark())
+                    .build())
+            );
+
+            case "YUSA" -> yusaRepository.findHistory(clientCode).forEach(y ->
+                list.add(HistoryDto.builder()
+                    .serviceType("YUSA")
+                    .serviceCode((long) y.getYusa_code())
+                    .analysisDate(java.sql.Timestamp.valueOf(y.getYusa_date()))
+                    .input(y.getYusa_input())
+                    .output(y.getYusa_output())
+                    .mark(y.getYusa_mark())
+                    .build())
+            );
+
+            case "JOGI" -> jogiRepository.findHistory(clientCode).forEach(j ->
+                list.add(HistoryDto.builder()
+                    .serviceType("JOGI")
+                    .serviceCode((long) j.getJogi_code())
+                    .analysisDate(java.sql.Timestamp.valueOf(j.getJogi_date()))
+                    .input(j.getJogi_input())
+                    .output(j.getJogi_output())
+                    .mark(j.getJogi_mark())
+                    .build())
+            );
+
+            case "BOONJANG" -> boonjangRepository.findHistory(clientCode).forEach(b ->
+                list.add(HistoryDto.builder()
+                    .serviceType("BOONJANG")
+                    .serviceCode((long) b.getBoonjang_code())
+                    .analysisDate(java.sql.Timestamp.valueOf(b.getBoonjang_date()))
+                    .input(b.getBoonjang_input())
+                    .output(b.getBoonjang_output())
+                    .mark(b.getBoonjang_mark())
+                    .build())
+            );
+        }
+
+        list.sort((a, b) -> b.getAnalysisDate().compareTo(a.getAnalysisDate()));
+        return list;
+    }
+
+    
+    //페이징
+    public HistoryPageDto getHistoryPage(int clientCode, int page, int size, String serviceType) {
+        List<HistoryDto> source;
+
+        if (serviceType == null || serviceType.isBlank()) {
+            source = getAllHistory(clientCode);
+        } else {
+            source = getHistoryByType(clientCode, serviceType);
+        }
+
+        int totalCount = source.size();
         int totalPages = (int) Math.ceil((double) totalCount / size);
 
-        // page 보정(1~totalPages)
         if (page < 1) page = 1;
         if (totalPages > 0 && page > totalPages) page = totalPages;
 
@@ -93,8 +154,9 @@ public class MyPageService {
         int toIndex = Math.min(fromIndex + size, totalCount);
 
         List<HistoryDto> content =
-                (totalCount == 0) ? java.util.Collections.emptyList()
-                                  : all.subList(fromIndex, toIndex);
+                totalCount == 0
+                ? Collections.emptyList()
+                : source.subList(fromIndex, toIndex);
 
         return new HistoryPageDto(content, totalCount, page, size, totalPages);
     }

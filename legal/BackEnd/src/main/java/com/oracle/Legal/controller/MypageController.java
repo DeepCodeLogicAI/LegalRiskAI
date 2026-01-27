@@ -46,7 +46,9 @@ public class MypageController {
     public String mypageMain(
             Model model,
             @RequestParam(name="page", defaultValue="1") int page,
-            @RequestParam(name="size", defaultValue="10") int size
+            @RequestParam(name="size", defaultValue="10") int size,
+            @RequestParam(name="serviceType", required=false) String serviceType 
+
     ) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         AccountDto loginUser = (AccountDto) auth.getPrincipal();
@@ -55,7 +57,7 @@ public class MypageController {
         int clientCode = loginUser.getClient_code();
 
         HistoryPageDto result =
-                myPageService.getHistoryPage(clientCode, page, size);
+                myPageService.getHistoryPage(clientCode, page, size, serviceType);
         
         //최신 이름 가져오기 
         ClientDto user = clientService.getSingleClient(clientCode);
@@ -66,6 +68,8 @@ public class MypageController {
         model.addAttribute("page", result.getPage());
         model.addAttribute("size", result.getSize());
         model.addAttribute("totalPages", result.getTotalPages());
+        model.addAttribute("serviceType", serviceType); 
+
 
         return "mypage/main";
     }
@@ -125,23 +129,29 @@ public class MypageController {
     
     //이력 삭제
     @PostMapping("/history/delete")
-    public String delete(@RequestParam(value="selectedKeys", required=false) List<String> selectedKeys) {
+    public String delete(
+            @RequestParam(value="selectedKeys", required=false) List<String> selectedKeys,
+            @RequestParam(name="page", defaultValue="1") int page,
+            @RequestParam(name="serviceType", required=false) String serviceType
+    ) {
         myPageService.bulkDelete(selectedKeys);
-        return "redirect:/mypage";
+        return "redirect:/mypage/main?page=" + page
+             + (serviceType != null && !serviceType.isBlank() ? "&serviceType=" + serviceType : "");
     }
 
     //즐겨찾기 
     @PostMapping("/history/mark/toggle")
     public String toggleMark(@RequestParam("serviceType") String serviceType,
                              @RequestParam("serviceCode") int serviceCode,
-                             @RequestParam(value="page", defaultValue="1") int page,
-                             @RequestParam(value="serviceTypeFilter", required=false) String filter) {
+                             @RequestParam(name="page", defaultValue="1") int page,
+                             @RequestParam(name="serviceTypeFilter", required=false) String filter) {
 
         myPageService.toggleMark(serviceType, serviceCode);
 
-        return "redirect:/mypage?page=" + page
+        return "redirect:/mypage/main?page=" + page
              + (filter != null && !filter.isBlank() ? "&serviceType=" + filter : "");
     }
+
 
 
 }
