@@ -45,9 +45,9 @@ public class SecurityConfig {
             //login
                     .requestMatchers("/", "/login", "/error**", "/assets/**").permitAll()
                     .requestMatchers("/client/**").permitAll()
-                    
-                    //법적위험
-                    .requestMatchers("/law/**").hasAnyAuthority("ROLE_USER")
+            //운영자                    
+                    .requestMatchers("/admin/**").hasAnyAuthority("ROLE_ADMIN")
+
                    
                     // 그 외는 로그인 필요
                     .anyRequest().authenticated()
@@ -56,13 +56,12 @@ public class SecurityConfig {
 			
         	.formLogin(form -> form
         		    .loginPage("/login").permitAll()
-        		    .loginProcessingUrl("/login")            
+        		    .loginProcessingUrl("/login")
         		    .authenticationDetailsSource(authenticationDetailsSource)
-        		    .defaultSuccessUrl("/", false) 
+        		    .successHandler(successHandler)
         		    .failureHandler(failureHandler)
         		    .permitAll()
         		)
-
 
             .authenticationProvider(authenticationProvider)
             .exceptionHandling(

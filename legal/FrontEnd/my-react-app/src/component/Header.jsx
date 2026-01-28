@@ -1,8 +1,16 @@
-import { NavLink } from "react-router-dom";
-import { useState, useEffect, useRef } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import { useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
 
-const navItems = [
+
+
+// 1차 메뉴(상단)
+const topNavItems = [
+  { to: "/results/recent", label: "최근 결과", icon: "🕒" },
+];
+
+// 2차 메뉴(사건 보기 하위)
+const caseSubItems = [
   { to: "/boonjang", label: "분쟁유형", icon: "⚖️" },
   { to: "/law", label: "법적위험", icon: "⚠️" },
   { to: "/yusa", label: "유사판례", icon: "🔍" },
@@ -10,10 +18,24 @@ const navItems = [
 ];
 
 export default function Header() {
+  const location = useLocation();
+
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // ✅ 사용자 드롭다운
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const menuRef = useRef(null);
+  const userMenuRef = useRef(null);
+
+  // ✅ 사건 보기 하위 메뉴
+  const [showCaseMenu, setShowCaseMenu] = useState(false);
+  const caseMenuRef = useRef(null);
+
+  // ✅ 현재 페이지가 사건 보기(하위 4개) 중 하나인지 표시용
+  const isInCaseSection = useMemo(() => {
+    const current = location.pathname;
+    return caseSubItems.some((i) => current === i.to || current.startsWith(i.to + "/"));
+  }, [location.pathname]);
 
   useEffect(() => {
     axios
@@ -23,13 +45,19 @@ export default function Header() {
       .finally(() => setLoading(false));
   }, []);
 
-  // ✅ 드롭다운 외부 클릭 시 닫기
+  // ✅ 바깥 클릭 시 메뉴 닫기(사용자/사건보기 둘 다)
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+      // 사용자 메뉴
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setShowUserMenu(false);
       }
+      // 사건 보기 메뉴
+      if (caseMenuRef.current && !caseMenuRef.current.contains(event.target)) {
+        setShowCaseMenu(false);
+      }
     };
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
@@ -41,7 +69,7 @@ export default function Header() {
     } catch (e) {
       try {
         await axios.get("/logout", { withCredentials: true });
-      } catch (e2) { }
+      } catch (e2) {}
     } finally {
       window.location.href = "/";
     }
@@ -51,10 +79,8 @@ export default function Header() {
     <header className="bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex h-16 items-center gap-8">
-          <a
-            href="/"
-            className="flex items-center gap-2 hover:opacity-90 transition"
-          >
+          {/* 로고 */}
+          <a href="/" className="flex items-center gap-2 hover:opacity-90 transition">
             <div className="w-9 h-9 rounded-2xl bg-blue-600 flex items-center justify-center shadow-sm">
               <span className="text-xl text-white">⚖️</span>
             </div>
@@ -63,8 +89,71 @@ export default function Header() {
             </span>
           </a>
 
+          {/* ✅ 네비게이션 */}
           <nav className="flex-1 flex items-center gap-2 ml-6">
-            {navItems.map((item) => (
+            {/* 1) 사건 보기 (클릭 시 하위 메뉴 펼침) */}
+            <div className="relative" ref={caseMenuRef}>
+              <button
+                type="button"
+                onClick={() => setShowCaseMenu((v) => !v)}
+                className={[
+                  "flex items-center gap-2 px-3 py-2 rounded-xl text-sm md:text-base",
+                  "transition-colors",
+                  isInCaseSection
+                    ? "bg-blue-50 text-blue-700 font-semibold"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+                ].join(" ")}
+              >
+                <span className="text-lg">⚖️</span>
+                <span>법률 종합 결과</span>
+                <svg
+                  className={[
+                    "w-4 h-4 transition-transform",
+                    showCaseMenu ? "rotate-180" : "",
+                  ].join(" ")}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* 하위 메뉴 (4개) */}
+              {showCaseMenu && (
+                <div className="absolute left-0 top-full mt-2 w-64 rounded-xl bg-white shadow-lg border border-gray-100 py-2 z-50">
+                  <div className="px-4 py-2 text-xs text-gray-400">
+                    사건을 4가지 관점으로 확인합니다
+                  </div>
+
+                  <div className="px-2">
+                    {caseSubItems.map((item) => (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        onClick={() => setShowCaseMenu(false)}
+                        className={({ isActive }) =>
+                          [
+                            "flex items-center gap-3 px-3 py-2.5 rounded-lg",
+                            "transition-colors",
+                            isActive
+                              ? "bg-blue-50 text-blue-700 font-semibold"
+                              : "text-gray-700 hover:bg-gray-50",
+                          ].join(" ")
+                        }
+                      >
+                        <span className="text-lg">{item.icon}</span>
+                        <span>{item.label}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 2) 최근 결과 (상단 단독 메뉴) */}
+            {topNavItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -85,59 +174,64 @@ export default function Header() {
           </nav>
 
           {/* ========== 사용자 영역 ========== */}
-          <div className="relative flex items-center gap-2" ref={menuRef}>
+          <div className="relative flex items-center gap-2" ref={userMenuRef}>
             {loading ? (
               <span className="text-gray-400 text-sm">로딩중...</span>
             ) : user ? (
               <>
-                {/* ✅ 프로필 버튼 (이미지와 동일한 스타일) */}
-                <button
-                  type="button"
-                  onClick={() => setShowUserMenu((v) => !v)}
-
-                >
-                  {/* 프로필 아이콘 */}
-
-
-                  {/* 사용자명 */}
-                  <span className="text-gray-700 font-medium px-2">👋 {user.displayName} 님</span>
-
-
+                <button type="button" onClick={() => setShowUserMenu((v) => !v)}>
+                  <span className="text-gray-700 font-medium px-2">
+                    👋 {user.displayName} 님
+                  </span>
                 </button>
 
-                {/* ✅ 드롭다운 메뉴 */}
                 {showUserMenu && (
                   <div className="absolute right-0 top-full mt-2 w-56 rounded-xl bg-white shadow-lg border border-gray-100 py-1 z-50">
-                    {/* 사용자 정보 */}
                     <div className="px-4 py-3 border-b border-gray-100">
                       <p className="font-semibold text-gray-900">
                         {user.displayName || user.username} 님
                       </p>
-                      <p className="text-sm text-gray-500 truncate">
-                        {user.username}
-                      </p>
+                      <p className="text-sm text-gray-500 truncate">{user.username}</p>
                     </div>
 
-                    {/* 마이페이지 */}
                     <a
                       href="/mypage/main"
                       onClick={() => setShowUserMenu(false)}
                       className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors"
                     >
-                      <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                      <svg
+                        className="w-5 h-5 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
+                        />
                       </svg>
                       <span className="text-gray-700">마이페이지</span>
                     </a>
 
-                    {/* 로그아웃 */}
                     <button
                       type="button"
                       onClick={handleLogout}
                       className="flex items-center gap-3 w-full px-4 py-2.5 hover:bg-red-50 transition-colors text-red-600"
                     >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"
+                        />
                       </svg>
                       <span>로그아웃</span>
                     </button>
@@ -171,45 +265,44 @@ export default function Header() {
  * ========================================
  * 비로그인 안내 컴포넌트 (LoginRequired)
  * ========================================
- * 페이지에서 로그인이 필요할 때 import하여 사용:
- * 
- * import { LoginRequired } from "../component/Header";
- * 
- * {!user && <LoginRequired />}
  */
 export function LoginRequired() {
   return (
     <div className="min-h-[60vh] flex items-center justify-center bg-gray-50">
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 max-w-md w-full mx-4 text-center">
-        {/* 잠금 아이콘 */}
         <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-blue-100 flex items-center justify-center">
-          <svg className="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+          <svg
+            className="w-8 h-8 text-blue-600"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+            />
           </svg>
         </div>
 
-        {/* 메시지 */}
-        <h2 className="text-xl font-bold text-gray-900 mb-2">
-          로그인이 필요합니다
-        </h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">로그인이 필요합니다</h2>
         <p className="text-gray-500 mb-6">
-          이 서비스는 로그인 후 이용 가능합니다.<br />
+          이 서비스는 로그인 후 이용 가능합니다.
+          <br />
           로그인하여 LegalRisk AI의 모든 기능을 사용해보세요.
         </p>
 
-        {/* 버튼 */}
         <div className="flex flex-col gap-3">
           <a
             href="/login"
-            className="w-full py-3 bg-blue-600 text-white font-medium rounded-xl
-                       hover:bg-blue-700 transition-colors text-center"
+            className="w-full py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors text-center"
           >
             로그인하기
           </a>
           <a
             href="/client/join"
-            className="w-full py-3 border border-gray-200 text-gray-700 font-medium rounded-xl
-                       hover:bg-gray-50 transition-colors text-center"
+            className="w-full py-3 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors text-center"
           >
             회원가입
           </a>
@@ -218,4 +311,3 @@ export function LoginRequired() {
     </div>
   );
 }
-
