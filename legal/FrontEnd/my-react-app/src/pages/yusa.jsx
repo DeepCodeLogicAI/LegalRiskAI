@@ -2,20 +2,41 @@ import React, { useState } from "react";
 import axios from "axios";
 
 /* =========================
-   판례 전문 파싱 유틸
+   판례 전문 파싱 유틸 (개선)
 ========================= */
+
+// ✅ 한자 괄호(【】)와 영문 괄호([]) 모두 지원
 const extractSection = (text, title) => {
   if (!text) return null;
-  const regex = new RegExp(`${title}([\\s\\S]*?)(?=\\n\\[[^\\]]+\\]|$)`);
-  const match = text.match(regex);
-  return match ? match[1].trim() : null;
+  
+  // 한자 괄호 패턴: 【주 문】
+  const koreanBracketPattern = new RegExp(
+    `【${title}】([\\s\\S]*?)(?=【[^】]+】|$)`,
+    'i'
+  );
+  
+  // 영문 괄호 패턴: [주 문]
+  const englishBracketPattern = new RegExp(
+    `\\[${title}\\]([\\s\\S]*?)(?=\\[[^\\]]+\\]|$)`,
+    'i'
+  );
+  
+  // 한자 괄호 우선 시도
+  let match = text.match(koreanBracketPattern);
+  if (match) return match[1].trim();
+  
+  // 영문 괄호 시도
+  match = text.match(englishBracketPattern);
+  if (match) return match[1].trim();
+  
+  return null;
 };
 
 const extractSentence = (text) => {
   if (!text) return null;
 
   const jail = text.match(/징역\s*\d+년(\s*\d+월)?/);
-  const fine = text.match(/벌금\s*\d+원/);
+  const fine = text.match(/벌금\s*[\d,]+원/);
 
   if (jail) return jail[0];
   if (fine) return fine[0];
@@ -53,16 +74,10 @@ export default function Yusa() {
     setSaveStatus(null);
 
     try {
-      // ✅ FastAPI 직접 호출 (프록시 우회)
       const res = await axios.post("http://localhost:8000/analyze", {
         case_type: caseType,
         case_text: inputText,
       });
-      
-      console.log("✅ AI 분석 완료");
-      console.log("응답 전체:", res.data);
-      console.log("similar_cases:", res.data.similar_cases);
-      console.log("case_id 목록:", res.data.similar_cases.map(c => c.case_id));
       
       setAiResult(res.data);
     } catch (err) {
@@ -116,25 +131,15 @@ export default function Yusa() {
   // 3️⃣ 판례 선택 시 full_text + summary fetch
   // ------------------------
   const handleSelectCase = async (c) => {
-    console.log("🔍 판례 클릭됨!");
-    console.log("전체 객체:", c);
-    console.log("case_id:", c.case_id);
-    console.log("case_number:", c.case_number);
-    
-    // ✅ case_id 또는 case_number 사용
     const caseIdToUse = c.case_id || c.case_number;
     
     if (!caseIdToUse) {
-      console.error("❌ case_id와 case_number 모두 없음!");
       alert("이 판례는 전문을 조회할 수 없습니다. (사건번호 누락)");
       return;
     }
 
     try {
-      console.log(`📡 API 요청: /case/${caseIdToUse}/full`);
       const res = await axios.get(`http://localhost:8000/case/${caseIdToUse}/full`);
-      console.log("✅ API 응답 받음:", res.data);
-      
       const fullData = res.data;
 
       setSelectedCase({
@@ -264,53 +269,77 @@ export default function Yusa() {
       {selectedCase && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded w-[750px] max-h-[85vh] overflow-y-auto">
-            <h3 className="font-bold text-lg">{selectedCase.case_name}</h3>
+            <h3 className="font-bold text-lg mb-4">{selectedCase.case_name}</h3>
 
+            {/* ✅ 요약 */}
             {selectedCase.summary && (
-              <div className="mt-3 p-3 bg-yellow-50 rounded">
-                <strong>요약</strong>
-                <pre className="text-sm whitespace-pre-wrap">{selectedCase.summary}</pre>
-              </div>
-            )}
-
-            {selectedCase.full_text && (
-              <div className="mt-3 p-3 bg-blue-50 rounded">
-                <strong>전문</strong>
-                <pre className="text-sm whitespace-pre-wrap">{selectedCase.full_text}</pre>
-              </div>
-            )}
-
-            {extractSection(selectedCase.full_text, "[주 문]") && (
-              <div className="mt-4 p-4 bg-red-50 border-l-4 border-red-500 rounded">
-                <strong>[주 문]</strong>
-                <pre className="text-sm whitespace-pre-wrap">
-                  {extractSection(selectedCase.full_text, "[주 문]")}
+              <div className="mb-4 p-4 bg-yellow-50 rounded border border-yellow-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">📝</span>
+                  <strong className="text-base">요약</strong>
+                </div>
+                <pre className="text-sm whitespace-pre-wrap text-gray-700">
+                  {selectedCase.summary}
                 </pre>
               </div>
             )}
 
-            {caseType === "형사" && (
-              <p className="mt-2 text-red-700 font-bold">
-                형량: {extractSentence(selectedCase.full_text) || "확인 불가"}
-              </p>
+            {/* ✅ 주 문 */}
+            {extractSection(selectedCase.full_text, "주\\s*문") && (
+              <div className="mb-4 p-4 bg-red-50 rounded border-l-4 border-red-500">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">⚖️</span>
+                  <strong className="text-base">주 문</strong>
+                </div>
+                <pre className="text-sm whitespace-pre-wrap text-gray-700">
+                  {extractSection(selectedCase.full_text, "주\\s*문")}
+                </pre>
+              </div>
             )}
 
+            {/* ✅ 형량 (형사 사건만) */}
+            {caseType === "형사" && extractSentence(selectedCase.full_text) && (
+              <div className="mb-4 p-3 bg-orange-50 rounded border border-orange-200">
+                <strong className="text-red-700">
+                  형량: {extractSentence(selectedCase.full_text)}
+                </strong>
+              </div>
+            )}
+
+            {/* ✅ 판시사항 토글 */}
             <button
               onClick={() => setShowIssues(!showIssues)}
-              className="mt-3 text-blue-600 text-sm font-bold"
+              className="mb-3 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
             >
-              {showIssues ? "판시사항 닫기" : "판시사항 보기"}
+              {showIssues ? "📖 판시사항 닫기" : "📖 판시사항 보기"}
             </button>
 
-            {showIssues && (
-              <pre className="mt-2 text-xs bg-gray-50 p-3 rounded whitespace-pre-wrap">
-                {extractSection(selectedCase.full_text, "[판시사항]") || "판시사항 없음"}
-              </pre>
+            {showIssues && extractSection(selectedCase.full_text, "판시사항") && (
+              <div className="mb-4 p-4 bg-blue-50 rounded border border-blue-200">
+                <strong className="block mb-2 text-base">판시사항</strong>
+                <pre className="text-sm whitespace-pre-wrap text-gray-700">
+                  {extractSection(selectedCase.full_text, "판시사항")}
+                </pre>
+              </div>
+            )}
+
+            {/* ✅ 전문 */}
+            {selectedCase.full_text && (
+              <details className="mt-4">
+                <summary className="cursor-pointer font-bold text-gray-700 hover:text-blue-600">
+                  📄 판례 전문 보기
+                </summary>
+                <div className="mt-3 p-4 bg-gray-50 rounded border">
+                  <pre className="text-xs whitespace-pre-wrap text-gray-600">
+                    {selectedCase.full_text}
+                  </pre>
+                </div>
+              </details>
             )}
 
             <button
               onClick={() => setSelectedCase(null)}
-              className="mt-4 w-full bg-gray-800 text-white py-2 rounded"
+              className="mt-4 w-full bg-gray-800 text-white py-2 rounded hover:bg-gray-700"
             >
               닫기
             </button>
