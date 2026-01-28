@@ -1,10 +1,28 @@
 import React, { useState } from "react";
 import axios from "axios";
 
+/* =========================
+   판례 전문 파싱 유틸
+========================= */
+const extractSection = (text, title) => {
+  if (!text) return null;
+  const regex = new RegExp(`${title}([\\s\\S]*?)(?=\\n\\[[^\\]]+\\]|$)`);
+  const match = text.match(regex);
+  return match ? match[1].trim() : null;
+};
+
+const extractSentence = (text) => {
+  if (!text) return null;
+
+  const jail = text.match(/징역\s*\d+년(\s*\d+월)?/);
+  const fine = text.match(/벌금\s*\d+원/);
+
+  if (jail) return jail[0];
+  if (fine) return fine[0];
+  return null;
+};
+
 export default function Yusa() {
-  /* =========================
-     상태값
-  ========================= */
   const [caseType, setCaseType] = useState("민사");
   const [inputText, setInputText] = useState("");
   const [aiResult, setAiResult] = useState(null);
@@ -13,94 +31,77 @@ export default function Yusa() {
   const [showCases, setShowCases] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
 
-  // 저장 / 즐겨찾기
+  const [showIssues, setShowIssues] = useState(false);
+
   const [isFavorite, setIsFavorite] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
-  // { success: boolean, message: string }
 
-  /* =========================
-     리스크 매핑
-  ========================= */
   const riskMap = {
-    LOW: { score: 25, bar: "bg-green-500", text: "text-green-600" },
-    MEDIUM: { score: 55, bar: "bg-yellow-500", text: "text-yellow-600" },
-    HIGH: { score: 80, bar: "bg-red-500", text: "text-red-600" },
+    낮음: { score: 25, bar: "bg-green-500", text: "text-green-600" },
+    중간: { score: 55, bar: "bg-yellow-500", text: "text-yellow-600" },
+    높음: { score: 80, bar: "bg-red-500", text: "text-red-600" },
   };
 
-  /* =========================
-     AI 분석
-  ========================= */
+  // ------------------------
+  // 1️⃣ AI 분석
+  // ------------------------
   const handleAnalyze = async () => {
-    if (!inputText.trim()) {
-      alert("사건 내용을 입력하세요.");
-      return;
-    }
+    if (!inputText.trim()) return alert("사건 내용을 입력하세요.");
 
     setLoading(true);
     setAiResult(null);
     setSaveStatus(null);
 
     try {
-      const res = await axios.post("/api/ai/analyze", {
+      // ✅ FastAPI 직접 호출 (프록시 우회)
+      const res = await axios.post("http://localhost:8000/analyze", {
         case_type: caseType,
         case_text: inputText,
       });
-
-      console.log("AI RESPONSE", res.data);
+      
+      console.log("✅ AI 분석 완료");
+      console.log("응답 전체:", res.data);
+      console.log("similar_cases:", res.data.similar_cases);
+      console.log("case_id 목록:", res.data.similar_cases.map(c => c.case_id));
+      
       setAiResult(res.data);
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error("❌ AI 분석 실패:", err);
       alert("AI 분석 실패");
     } finally {
       setLoading(false);
     }
   };
 
-  /* =========================
-     결과 저장
-  ========================= */
+  // ------------------------
+  // 2️⃣ 결과 저장
+  // ------------------------
   const handleSaveYusa = async () => {
-    if (!aiResult) {
-      alert("먼저 AI 분석을 실행하세요.");
-      return;
-    }
+    if (!aiResult) return;
 
-    setSaveStatus(null);
-
-    const saveRequest = {
+    const req = {
       yusa_input: inputText,
       yusa_output: aiResult.summary,
       yusa_mark: isFavorite ? 1 : 0,
-      caseType: caseType,
+      caseType,
     };
 
     try {
-      const res = await axios.post("/api/yusa/save", saveRequest, {
+      const res = await axios.post("/api/yusa/save", req, {
         withCredentials: true,
       });
-
-      setSaveStatus({
-        success: true,
-        message: `저장 완료! yusa_code = ${res.data}`,
-      });
-    } catch (e) {
-      console.error(e);
-      setSaveStatus({
-        success: false,
-        message: "저장 실패: 서버 오류",
-      });
+      setSaveStatus({ success: true, message: `저장 완료 (ID: ${res.data})` });
+    } catch {
+      setSaveStatus({ success: false, message: "저장 실패" });
     }
   };
 
-  /* =========================
-     요약 강조
-  ========================= */
   const highlightSummary = (text = "") =>
     text.split("\n").map((line, i) => (
       <p
         key={i}
         className={
-          line.includes("법적") || line.includes("소송")
+          line.includes("쟁점") || line.includes("핵심")
             ? "bg-yellow-100 px-2 py-1 rounded mb-1"
             : "mb-1"
         }
@@ -111,15 +112,55 @@ export default function Yusa() {
 
   const risk = aiResult ? riskMap[aiResult.overall_risk_level] : null;
 
-  /* =========================
-     렌더링
-  ========================= */
+  // ------------------------
+  // 3️⃣ 판례 선택 시 full_text + summary fetch
+  // ------------------------
+  const handleSelectCase = async (c) => {
+    console.log("🔍 판례 클릭됨!");
+    console.log("전체 객체:", c);
+    console.log("case_id:", c.case_id);
+    console.log("case_number:", c.case_number);
+    
+    // ✅ case_id 또는 case_number 사용
+    const caseIdToUse = c.case_id || c.case_number;
+    
+    if (!caseIdToUse) {
+      console.error("❌ case_id와 case_number 모두 없음!");
+      alert("이 판례는 전문을 조회할 수 없습니다. (사건번호 누락)");
+      return;
+    }
+
+    try {
+      console.log(`📡 API 요청: /case/${caseIdToUse}/full`);
+      const res = await axios.get(`http://localhost:8000/case/${caseIdToUse}/full`);
+      console.log("✅ API 응답 받음:", res.data);
+      
+      const fullData = res.data;
+
+      setSelectedCase({
+        ...fullData,
+        summary: fullData.summary || c.xai_reason || "",
+        case_name: fullData.case_name || c.case_name,
+        full_text: fullData.full_text || "",
+      });
+
+      setShowIssues(false);
+    } catch (err) {
+      console.error("❌ 판례 전문 로드 실패:", err);
+      
+      if (err.response?.status === 404) {
+        alert(`사건번호 ${caseIdToUse}를 찾을 수 없습니다.`);
+      } else {
+        alert("판례 전문 로드 실패");
+      }
+    }
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen p-6">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        {/* 입력 영역 */}
-        <div className="bg-white rounded-xl p-6 border shadow-sm flex flex-col">
+        {/* 입력 */}
+        <div className="bg-white p-6 rounded border">
           <h2 className="font-bold mb-3">📝 사건 입력</h2>
 
           <select
@@ -134,109 +175,82 @@ export default function Yusa() {
           </select>
 
           <textarea
-            className="flex-1 border rounded p-3 resize-none bg-gray-50"
+            className="w-full h-64 border rounded p-3 bg-gray-50"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder="사건 사실관계를 입력하세요"
           />
 
           <button
             onClick={handleAnalyze}
-            className="mt-4 py-3 bg-blue-500 text-white rounded font-bold"
+            className="mt-4 w-full bg-blue-500 text-white py-2 rounded"
           >
             {loading ? "분석 중..." : "AI 분석"}
           </button>
         </div>
 
-        {/* 결과 영역 */}
-        <div className="bg-white rounded-xl p-6 border shadow-sm flex flex-col">
+        {/* 결과 */}
+        <div className="bg-white p-6 rounded border flex flex-col">
           <h2 className="font-bold mb-3">📊 분석 결과</h2>
-
-          {!aiResult && (
-            <div className="flex-1 flex items-center justify-center text-gray-400">
-              분석 결과가 여기에 표시됩니다.
-            </div>
-          )}
 
           {aiResult && (
             <>
-              {/* 리스크 */}
               {risk && (
-                <div className="mb-4">
+                <div className="mb-3">
                   <p className={`font-bold ${risk.text}`}>
                     리스크: {aiResult.overall_risk_level}
                   </p>
-                  <div className="w-full bg-gray-200 h-3 rounded mt-1">
+                  <div className="bg-gray-200 h-2 rounded">
                     <div
-                      className={`${risk.bar} h-3 rounded`}
+                      className={`${risk.bar} h-2 rounded`}
                       style={{ width: `${risk.score}%` }}
                     />
                   </div>
                 </div>
               )}
 
-              {/* 요약 */}
-              <div className="flex-1 overflow-auto text-sm mb-3">
-                {highlightSummary(aiResult.summary)}
-              </div>
+              <div className="text-sm mb-3">{highlightSummary(aiResult.summary)}</div>
 
-              {/* 판례 */}
-              {aiResult.similar_cases?.length > 0 && (
-                <>
-                  <button
-                    onClick={() => setShowCases(!showCases)}
-                    className="text-blue-500 text-sm mb-2"
+              <button
+                onClick={() => setShowCases(!showCases)}
+                className="text-blue-600 text-sm"
+              >
+                {showCases ? "판례 접기" : "유사 판례 보기"}
+              </button>
+
+              {showCases &&
+                aiResult.similar_cases.map((c, i) => (
+                  <div
+                    key={i}
+                    className="border p-2 mt-2 rounded cursor-pointer hover:bg-gray-50"
+                    onClick={() => handleSelectCase(c)}
                   >
-                    {showCases ? "판례 접기" : "유사 판례 보기"}
-                  </button>
+                    <strong>{c.case_name}</strong>
+                    <p className="text-xs text-gray-500">
+                      {c.court} · {Math.round(c.similarity * 100)}%
+                    </p>
+                  </div>
+                ))}
 
-                  {showCases && (
-                    <ul className="space-y-2 text-sm mb-3">
-                      {aiResult.similar_cases.map((c, i) => (
-                        <li
-                          key={i}
-                          className="border p-2 rounded hover:bg-gray-50 cursor-pointer"
-                          onClick={() => setSelectedCase(c)}
-                        >
-                          <strong>{c.case_name}</strong>
-                          <p className="text-xs text-gray-500">
-                            {c.court} · 유사도 {Math.round(c.similarity * 100)}%
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </>
-              )}
-
-              {/* 즐겨찾기 + 저장 */}
-              <div className="flex justify-between items-center mt-3">
-                <div className="flex items-center gap-2">
+              <div className="flex justify-between items-center mt-4">
+                <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     checked={isFavorite}
                     onChange={(e) => setIsFavorite(e.target.checked)}
                   />
-                  <span className="text-sm">즐겨찾기 추가</span>
-                </div>
+                  즐겨찾기
+                </label>
 
                 <button
                   onClick={handleSaveYusa}
-                  className="px-4 py-2 bg-green-500 text-white rounded text-sm font-bold"
+                  className="bg-green-500 text-white px-4 py-2 rounded"
                 >
                   결과 저장
                 </button>
               </div>
 
-              {/* 저장 상태 */}
               {saveStatus && (
-                <div
-                  className={`mt-3 p-3 rounded text-sm font-bold ${
-                    saveStatus.success
-                      ? "bg-blue-50 text-blue-600"
-                      : "bg-red-50 text-red-600"
-                  }`}
-                >
+                <div className="mt-2 text-sm font-bold">
                   {saveStatus.success ? "✅ " : "❌ "}
                   {saveStatus.message}
                 </div>
@@ -248,18 +262,55 @@ export default function Yusa() {
 
       {/* 판례 모달 */}
       {selectedCase && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded w-[500px]">
-            <h3 className="font-bold mb-2">{selectedCase.case_name}</h3>
-            <p>법원: {selectedCase.court}</p>
-            <p>사건번호: {selectedCase.case_number}</p>
-            <p>결과: {selectedCase.outcome}</p>
-            <p className="mt-2 bg-yellow-100 p-2 rounded text-sm">
-              {selectedCase.xai_reason}
-            </p>
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded w-[750px] max-h-[85vh] overflow-y-auto">
+            <h3 className="font-bold text-lg">{selectedCase.case_name}</h3>
+
+            {selectedCase.summary && (
+              <div className="mt-3 p-3 bg-yellow-50 rounded">
+                <strong>요약</strong>
+                <pre className="text-sm whitespace-pre-wrap">{selectedCase.summary}</pre>
+              </div>
+            )}
+
+            {selectedCase.full_text && (
+              <div className="mt-3 p-3 bg-blue-50 rounded">
+                <strong>전문</strong>
+                <pre className="text-sm whitespace-pre-wrap">{selectedCase.full_text}</pre>
+              </div>
+            )}
+
+            {extractSection(selectedCase.full_text, "[주 문]") && (
+              <div className="mt-4 p-4 bg-red-50 border-l-4 border-red-500 rounded">
+                <strong>[주 문]</strong>
+                <pre className="text-sm whitespace-pre-wrap">
+                  {extractSection(selectedCase.full_text, "[주 문]")}
+                </pre>
+              </div>
+            )}
+
+            {caseType === "형사" && (
+              <p className="mt-2 text-red-700 font-bold">
+                형량: {extractSentence(selectedCase.full_text) || "확인 불가"}
+              </p>
+            )}
+
+            <button
+              onClick={() => setShowIssues(!showIssues)}
+              className="mt-3 text-blue-600 text-sm font-bold"
+            >
+              {showIssues ? "판시사항 닫기" : "판시사항 보기"}
+            </button>
+
+            {showIssues && (
+              <pre className="mt-2 text-xs bg-gray-50 p-3 rounded whitespace-pre-wrap">
+                {extractSection(selectedCase.full_text, "[판시사항]") || "판시사항 없음"}
+              </pre>
+            )}
+
             <button
               onClick={() => setSelectedCase(null)}
-              className="mt-4 w-full py-2 bg-gray-800 text-white rounded"
+              className="mt-4 w-full bg-gray-800 text-white py-2 rounded"
             >
               닫기
             </button>

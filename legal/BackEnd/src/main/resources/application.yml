@@ -69,3 +69,4 @@ logging.level:
   
 #upload Folder
 com.oracle.legal.upload.path: upload
+
