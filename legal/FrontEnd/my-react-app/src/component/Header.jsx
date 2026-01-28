@@ -18,8 +18,14 @@ export default function Header() {
   useEffect(() => {
     axios
       .get("/api/user/me", { withCredentials: true })
-      .then((res) => setUser(res.data))
-      .catch(() => setUser(null))
+      .then((res) => {
+        console.log("User data:", res.data); // 디버깅용
+        setUser(res.data);
+      })
+      .catch((err) => {
+        console.error("User fetch error:", err); // 디버깅용
+        setUser(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -37,11 +43,14 @@ export default function Header() {
   // ✅ 로그아웃 처리
   const handleLogout = async () => {
     try {
-      await axios.post("/logout", {}, { withCredentials: true });
+      await axios.post("/api/logout", {}, { withCredentials: true });
     } catch (e) {
+      console.error("Logout error:", e);
       try {
-        await axios.get("/logout", { withCredentials: true });
-      } catch (e2) { }
+        await axios.get("/api/logout", { withCredentials: true });
+      } catch (e2) {
+        console.error("Logout fallback error:", e2);
+      }
     } finally {
       window.location.href = "/";
     }
@@ -82,6 +91,28 @@ export default function Header() {
                 <span>{item.label}</span>
               </NavLink>
             ))}
+
+            {/* 마이페이지도 상단 메뉴 버튼으로 */}
+            <a
+              href="/mypage/main"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm md:text-base
+               transition-colors text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
+                />
+              </svg>
+              <span> 마이페이지 </span>
+            </a>
           </nav>
 
           {/* ========== 사용자 영역 ========== */}
@@ -90,19 +121,28 @@ export default function Header() {
               <span className="text-gray-400 text-sm">로딩중...</span>
             ) : user ? (
               <>
-                {/* ✅ 프로필 버튼 (이미지와 동일한 스타일) */}
+                {/* ✅ 프로필 버튼 */}
                 <button
                   type="button"
                   onClick={() => setShowUserMenu((v) => !v)}
-
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
                 >
-                  {/* 프로필 아이콘 */}
-
-
-                  {/* 사용자명 */}
-                  <span className="text-gray-700 font-medium px-2">👋 {user.displayName} 님</span>
-
-
+                  <span className="text-gray-700 font-medium">
+                    👋 {user.displayName || user.username} 님
+                  </span>
+                  <svg
+                    className={`w-4 h-4 text-gray-500 transition-transform ${showUserMenu ? "rotate-180" : ""}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
                 </button>
 
                 {/* ✅ 드롭다운 메뉴 */}
@@ -114,21 +154,9 @@ export default function Header() {
                         {user.displayName || user.username} 님
                       </p>
                       <p className="text-sm text-gray-500 truncate">
-                        {user.username}
+                        {user.email || user.username}
                       </p>
                     </div>
-
-                    {/* 마이페이지 */}
-                    <a
-                      href="/mypage/main"
-                      onClick={() => setShowUserMenu(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors"
-                    >
-                      <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-                      </svg>
-                      <span className="text-gray-700">마이페이지</span>
-                    </a>
 
                     {/* 로그아웃 */}
                     <button
@@ -136,8 +164,18 @@ export default function Header() {
                       onClick={handleLogout}
                       className="flex items-center gap-3 w-full px-4 py-2.5 hover:bg-red-50 transition-colors text-red-600"
                     >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"
+                        />
                       </svg>
                       <span>로그아웃</span>
                     </button>
@@ -172,9 +210,9 @@ export default function Header() {
  * 비로그인 안내 컴포넌트 (LoginRequired)
  * ========================================
  * 페이지에서 로그인이 필요할 때 import하여 사용:
- * 
+ *
  * import { LoginRequired } from "../component/Header";
- * 
+ *
  * {!user && <LoginRequired />}
  */
 export function LoginRequired() {
@@ -183,8 +221,18 @@ export function LoginRequired() {
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 max-w-md w-full mx-4 text-center">
         {/* 잠금 아이콘 */}
         <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-blue-100 flex items-center justify-center">
-          <svg className="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+          <svg
+            className="w-8 h-8 text-blue-600"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+            />
           </svg>
         </div>
 
@@ -193,7 +241,8 @@ export function LoginRequired() {
           로그인이 필요합니다
         </h2>
         <p className="text-gray-500 mb-6">
-          이 서비스는 로그인 후 이용 가능합니다.<br />
+          이 서비스는 로그인 후 이용 가능합니다.
+          <br />
           로그인하여 LegalRisk AI의 모든 기능을 사용해보세요.
         </p>
 
@@ -218,4 +267,3 @@ export function LoginRequired() {
     </div>
   );
 }
-
