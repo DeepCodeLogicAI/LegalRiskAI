@@ -62,7 +62,7 @@ export default function Yusa() {
   };
 
   // ------------------------
-  // 1️⃣ AI 분석 (case_type 전송 제거!)
+  // 1️⃣ AI 분석
   // ------------------------
   const handleAnalyze = async () => {
     if (!inputText.trim()) return alert("사건 내용을 입력하세요.");
@@ -72,7 +72,6 @@ export default function Yusa() {
     setSaveStatus(null);
 
     try {
-      // ✅ case_type 필드 없음!
       const res = await axios.post("http://localhost:8000/analyze", {
         case_text: inputText,
       });
@@ -97,7 +96,7 @@ export default function Yusa() {
       yusa_input: inputText,
       yusa_output: aiResult.summary,
       yusa_mark: isFavorite ? 1 : 0,
-      caseType: aiResult.inferred_case_type,  // ✅ 서버가 분류한 타입
+      caseType: aiResult.inferred_case_type,
     };
 
     try {
@@ -162,7 +161,6 @@ export default function Yusa() {
         <div className="bg-white p-6 rounded-lg border shadow-sm">
           <h2 className="font-bold text-xl mb-4">📝 사건 내용 입력</h2>
           
-          {/* ✅ 사건 유형 드롭다운 제거! */}
           <p className="text-sm text-gray-600 mb-3">
             사건 내용을 자유롭게 작성하시면 AI가 자동으로 분석합니다.
           </p>
@@ -206,6 +204,59 @@ export default function Yusa() {
                   {aiResult.case_type_description}
                 </p>
               </div>
+
+              {/* ✅ 복수 유형 표시 */}
+              {aiResult.search_result_types && aiResult.search_result_types.is_mixed && (
+                <div className="mb-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xl">🔀</span>
+                    <strong className="text-base">복수 유형 감지</strong>
+                  </div>
+                  
+                  <p className="text-sm text-gray-700 mb-3">
+                    검색된 판례가 여러 사건 유형에 걸쳐있습니다:
+                  </p>
+                  
+                  {/* 유형별 바 차트 */}
+                  <div className="space-y-2 mb-3">
+                    {Object.entries(aiResult.search_result_types.distribution)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([type, count]) => {
+                        const percentage = aiResult.search_result_types.percentages[type];
+                        return (
+                          <div key={type} className="flex items-center gap-2">
+                            <span className="text-xs w-16 font-medium text-gray-600">{type}</span>
+                            <div className="flex-1 bg-gray-200 h-5 rounded-full overflow-hidden">
+                              <div 
+                                className="bg-purple-500 h-5 rounded-full flex items-center justify-end pr-2"
+                                style={{ width: `${percentage * 100}%` }}
+                              >
+                                {percentage >= 0.15 && (
+                                  <span className="text-xs text-white font-medium">
+                                    {Math.round(percentage * 100)}%
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-xs w-12 text-right text-gray-500">
+                              {count}건
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                  
+                  {/* 특별 노트 */}
+                  {aiResult.search_result_types.note && (
+                    <div className="flex items-start gap-2 p-3 bg-purple-100 rounded-lg">
+                      <span className="text-lg">💡</span>
+                      <p className="text-sm text-purple-800 flex-1">
+                        {aiResult.search_result_types.note}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* 리스크 */}
               {risk && (
