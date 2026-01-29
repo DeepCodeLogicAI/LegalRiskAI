@@ -7,7 +7,7 @@ import com.oracle.Legal.domain.Jogi;
 import com.oracle.Legal.domain.Law;
 import com.oracle.Legal.domain.Yusa;
 import com.oracle.Legal.dto.HistoryDto;
-import com.oracle.Legal.dto.HistoryPageDto;
+import com.oracle.Legal.dto.PageDto;
 import com.oracle.Legal.repository.*;
 
 import jakarta.transaction.Transactional;
@@ -135,7 +135,7 @@ public class MyPageService {
 
     
     //페이징
-    public HistoryPageDto getHistoryPage(int clientCode, int page, int size, String serviceType) {
+    public PageDto<HistoryDto> getHistoryPage(int clientCode, int page, int size, String serviceType) {
         List<HistoryDto> source;
 
         if (serviceType == null || serviceType.isBlank()) {
@@ -158,7 +158,7 @@ public class MyPageService {
                 ? Collections.emptyList()
                 : source.subList(fromIndex, toIndex);
 
-        return new HistoryPageDto(content, totalCount, page, size, totalPages);
+        return new PageDto<>(content, totalCount, page, size, totalPages);
     }
 
     //법적위험 서비스코드로 찾기

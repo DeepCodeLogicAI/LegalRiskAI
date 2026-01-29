@@ -16,7 +16,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.oracle.Legal.dto.AccountDto;
 import com.oracle.Legal.dto.ClientDto;
 import com.oracle.Legal.dto.HistoryDto;
-import com.oracle.Legal.dto.HistoryPageDto;
+import com.oracle.Legal.dto.PageDto;
 import com.oracle.Legal.service.ClientService;
 import com.oracle.Legal.service.MyPageService;
 
@@ -56,7 +56,7 @@ public class MypageController {
         //로그인 유저 가져오기
         int clientCode = loginUser.getClient_code();
 
-        HistoryPageDto result =
+        PageDto<HistoryDto> result =
                 myPageService.getHistoryPage(clientCode, page, size, serviceType);
         
         //최신 이름 가져오기 

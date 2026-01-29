@@ -7,8 +7,8 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class HistoryPageDto {
-    private List<HistoryDto> content;   
+public class PageDto<T> {
+    private List<T> content;   
     private int totalCount;             
     private int page;                   
     private int size;                   
