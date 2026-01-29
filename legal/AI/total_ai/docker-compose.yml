@@ -1,0 +1,52 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  # PostgreSQL + pgvector 데이터베이스
+  db:
+    image: ankane/pgvector:latest
+    container_name: legal-ai-db
+    environment:
+      POSTGRES_DB: legal_ai
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-legalai123}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # FastAPI 애플리케이션
+  api:
+    build: .
+    container_name: legal-ai-api
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD:-legalai123}@db:5432/legal_ai
+      - USE_DATABASE=${USE_DATABASE:-false}
+      - PARQUET_PATH=/app/data/korean_precedents_embedded.parquet
+      - CSV_PATH=/app/data/korean_precedents_clean.csv
+      - FAISS_INDEX_PATH=/app/data/case_index.faiss
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:8484,http://localhost:3000}
+    volumes:
+      # 데이터 파일 마운트
+      - ./data:/app/data
+      # 모델 파일 마운트
+      - ./models:/app/models
+      # 모델 캐시
+      - model_cache:/app/.cache
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  model_cache:
