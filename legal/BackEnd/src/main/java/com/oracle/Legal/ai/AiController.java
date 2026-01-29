@@ -19,17 +19,4 @@ public class AiController {
     ) {
         return aiService.analyze(request);
     }
-
-    /**
-     * 위험도 분석 API (Gemini 연동)
-     * 
-     * @param request 사건 텍스트
-     * @return 승소율, 형량, 벌금, 위험도 점수 및 Gemini 피드백
-     */
-    @PostMapping("/risk-analyze")
-    public Mono<AiDto.RiskAnalyzeResponse> riskAnalyze(
-            @RequestBody AiDto.RiskAnalyzeRequest request
-    ) {
-        return aiService.riskAnalyze(request);
-    }
 }
