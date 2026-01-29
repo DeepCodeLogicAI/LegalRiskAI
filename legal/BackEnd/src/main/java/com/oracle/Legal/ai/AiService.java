@@ -21,4 +21,17 @@ public class AiService {
                 .retrieve()
                 .bodyToMono(AiDto.AnalyzeResponse.class);
     }
+
+    /**
+     * 위험도 분석 API 호출 (Gemini 연동)
+     * - 승소율, 형량, 벌금, 위험도 점수 예측
+     * - Gemini를 통한 상세 피드백 생성
+     */
+    public Mono<AiDto.RiskAnalyzeResponse> riskAnalyze(AiDto.RiskAnalyzeRequest request) {
+        return aiWebClient.post()
+                .uri("/risk-analyze")
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(AiDto.RiskAnalyzeResponse.class);
+    }
 }
