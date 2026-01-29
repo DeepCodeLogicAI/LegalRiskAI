@@ -5,7 +5,7 @@
 	
 	@Controller
 	public class ReactController {
-		@RequestMapping({"/law","/boonjang","/jogi","/yusa"})
+		@RequestMapping({"/law","/boonjang","/jogi","/yusa","/ai-analysis"})
 		public String IndexForwarding() {
 		return "forward:/index.html";
 		  }
