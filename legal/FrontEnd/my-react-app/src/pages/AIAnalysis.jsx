@@ -104,10 +104,14 @@ export default function AIAnalysis() {
             console.log("📏 텍스트 길이:", inputText.length, "자");
 
             // 1. 분쟁 유형 및 유사 판례 분석
-            console.log("\n[1/2] 분쟁 유형 분석 중...");
-            const analyzeRes = await axios.post(`${API_BASE}/analyze`, {
-                case_text: inputText
-            });
+            const analyzeRes = await axios.post(
+                `${API_BASE}/dispute/analyze`,
+                {
+                    text: inputText,   // ✅ 핵심 수정
+                    top_k: 3           // (선택) 기본값이라 생략 가능
+                }
+            );
+            
             console.log("✅ 분쟁 유형 분석 완료:");
             console.log("📋 분류:", analyzeRes.data.classification?.inferred_type);
             console.log("📊 신뢰도:", (analyzeRes.data.classification?.confidence * 100).toFixed(1) + "%");
@@ -164,7 +168,7 @@ export default function AIAnalysis() {
 
         try {
             console.log("=== 🚀 YUSA AI 분석 시작 ===");
-            const res = await axios.post("http://localhost:8000/analyze", {
+            const res = await axios.post("http://localhost:8000/precedent/analyze", {
                 case_text: inputText,
             });
 
@@ -209,7 +213,7 @@ export default function AIAnalysis() {
         }
 
         try {
-            const res = await axios.get(`http://localhost:8000/case/${caseIdToUse}/full`);
+            const res = await axios.get(`http://localhost:8000/precedent/case/${caseIdToUse}/full`);
             const fullData = res.data;
 
             setSelectedCase({
