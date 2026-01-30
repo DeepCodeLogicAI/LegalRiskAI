@@ -1,138 +1,15 @@
-import React, { useState } from "react";
-import axios from "axios";
-
-/* =========================
-   판례 전문 파싱 유틸
-========================= */
-const extractSection = (text, title) => {
-  if (!text) return null;
-  
-  const koreanBracketPattern = new RegExp(
-    `【${title}】([\\s\\S]*?)(?=【[^】]+】|$)`,
-    'i'
-  );
-  
-  const englishBracketPattern = new RegExp(
-    `\\[${title}\\]([\\s\\S]*?)(?=\\[[^\\]]+\\]|$)`,
-    'i'
-  );
-  
-  let match = text.match(koreanBracketPattern);
-  if (match) return match[1].trim();
-  
-  match = text.match(englishBracketPattern);
-  if (match) return match[1].trim();
-  
-  return null;
-};
-
-const extractSentence = (text) => {
-  if (!text) return null;
-  const jail = text.match(/징역\s*\d+년(\s*\d+월)?/);
-  const fine = text.match(/벌금\s*[\d,]+원/);
-  if (jail) return jail[0];
-  if (fine) return fine[0];
-  return null;
-};
+import { Link } from "react-router-dom";
+import { useState } from "react";
 
 export default function Yusa() {
-  const [inputText, setInputText] = useState("");
-  const [aiResult, setAiResult] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [yusaInput, setYusaInput] = useState("");
+  const [yusaOutput, setYusaOutput] = useState("");
+  const [yusaMark, setYusaMark] = useState(0);
+  const [msg, setMsg] = useState("");
 
-  const [showCases, setShowCases] = useState(false);
-  const [selectedCase, setSelectedCase] = useState(null);
-  const [showIssues, setShowIssues] = useState(false);
-
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [saveStatus, setSaveStatus] = useState(null);
-
-  const riskMap = {
-    낮음: { score: 25, bar: "bg-green-500", text: "text-green-600" },
-    중간: { score: 55, bar: "bg-yellow-500", text: "text-yellow-600" },
-    높음: { score: 80, bar: "bg-red-500", text: "text-red-600" },
-  };
-
-  // 사건 유형별 아이콘
-  const caseTypeIcons = {
-    "형사": "⚖️",
-    "가사": "👨‍👩‍👧",
-    "노동": "👷",
-    "전체": "📋"
-  };
-
-  // ------------------------
-  // 1️⃣ AI 분석
-  // ------------------------
-  const handleAnalyze = async () => {
-    if (!inputText.trim()) return alert("사건 내용을 입력하세요.");
-
-    setLoading(true);
-    setAiResult(null);
-    setSaveStatus(null);
-
-    try {
-      const res = await axios.post("http://localhost:8000/analyze", {
-        case_text: inputText,
-      });
-      
-      console.log("✅ AI 분석 완료:", res.data);
-      setAiResult(res.data);
-    } catch (err) {
-      console.error("❌ AI 분석 실패:", err);
-      alert("AI 분석 실패");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ------------------------
-  // 2️⃣ 결과 저장
-  // ------------------------
-  const handleSaveYusa = async () => {
-    if (!aiResult) return;
-
-    const req = {
-      yusa_input: inputText,
-      yusa_output: aiResult.summary,
-      yusa_mark: isFavorite ? 1 : 0,
-      caseType: aiResult.inferred_case_type,
-    };
-
-    try {
-      const res = await axios.post("/api/yusa/save", req, {
-        withCredentials: true,
-      });
-      setSaveStatus({ success: true, message: `저장 완료 (ID: ${res.data})` });
-    } catch {
-      setSaveStatus({ success: false, message: "저장 실패" });
-    }
-  };
-
-  const highlightSummary = (text = "") =>
-    text.split("\n").map((line, i) => (
-      <p
-        key={i}
-        className={
-          line.includes("쟁점") || line.includes("핵심")
-            ? "bg-yellow-100 px-2 py-1 rounded mb-1"
-            : "mb-1"
-        }
-      >
-        {line}
-      </p>
-    ));
-
-  const risk = aiResult ? riskMap[aiResult.overall_risk_level] : null;
-
-  // ------------------------
-  // 3️⃣ 판례 선택
-  // ------------------------
-  const handleSelectCase = async (c) => {
-    const caseIdToUse = c.case_id || c.case_number;
-    
-    if (!caseIdToUse) {
-      alert("이 판례는 전문을 조회할 수 없습니다.");
+  const saveYusa = async () => {
+    if (!yusaInput.trim()) {
+      setMsg("내용을 입력하세요.");
       return;
     }
 
@@ -155,166 +32,32 @@ export default function Yusa() {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen p-6">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* ===== 입력 영역 ===== */}
-        <div className="bg-white p-6 rounded-lg border shadow-sm">
-          <h2 className="font-bold text-xl mb-4">📝 사건 내용 입력</h2>
-          
-          <p className="text-sm text-gray-600 mb-3">
-            사건 내용을 자유롭게 작성하시면 AI가 자동으로 분석합니다.
-          </p>
+    <div style={{ padding: 24, maxWidth: 600 }}>
+      <h2>유사위험</h2>
 
-          <textarea
-            className="w-full h-72 border rounded-lg p-4 bg-gray-50 text-sm"
-            placeholder="예시: 임대한 집에 누수가 심해서 살 수 없을 정도였는데, 집주인이 수리를 해주지 않았습니다. 계약 기간이 남았지만 먼저 이사를 갔고, 보증금을 전액 돌려받고 싶습니다..."
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-          />
+      <textarea
+        value={yusaInput}
+        onChange={(e) => setYusaInput(e.target.value)}
+        rows={8}
+        placeholder="사건 내용을 입력하세요..."
+        style={{ width: "100%", padding: 12 }}
+      />
+                  <textarea
+        value={yusaOutput}
+        onChange={(e) => setYusaOutput(e.target.value)}
+        rows={8}
+        placeholder="사건 내용을 입력하세요..."
+        style={{ width: "100%", padding: 12 }}
+      />
 
-          <button
-            onClick={handleAnalyze}
-            disabled={loading}
-            className="mt-4 w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400 transition"
-          >
-            {loading ? "🔄 AI 분석 중..." : "🚀 AI 분석 시작"}
-          </button>
-        </div>
-
-        {/* ===== 결과 영역 ===== */}
-        <div className="bg-white p-6 rounded-lg border shadow-sm flex flex-col">
-          <h2 className="font-bold text-xl mb-4">📊 분석 결과</h2>
-
-          {aiResult && (
-            <>
-              {/* ✅ 자동 분류 결과 표시 */}
-              <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-2xl">
-                    {caseTypeIcons[aiResult.inferred_case_type] || "📋"}
-                  </span>
-                  <strong className="text-lg">
-                    AI 판단: {aiResult.case_type_label}
-                  </strong>
-                  <span className="text-sm text-gray-600">
-                    (신뢰도: {Math.round(aiResult.case_type_confidence * 100)}%)
-                  </span>
-                </div>
-                <p className="text-sm text-gray-700">
-                  {aiResult.case_type_description}
-                </p>
-              </div>
-
-              {/* ✅ 복수 유형 표시 */}
-              {aiResult.search_result_types && aiResult.search_result_types.is_mixed && (
-                <div className="mb-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xl">🔀</span>
-                    <strong className="text-base">복수 유형 감지</strong>
-                  </div>
-                  
-                  <p className="text-sm text-gray-700 mb-3">
-                    검색된 판례가 여러 사건 유형에 걸쳐있습니다:
-                  </p>
-                  
-                  {/* 유형별 바 차트 */}
-                  <div className="space-y-2 mb-3">
-                    {Object.entries(aiResult.search_result_types.distribution)
-                      .sort((a, b) => b[1] - a[1])
-                      .map(([type, count]) => {
-                        const percentage = aiResult.search_result_types.percentages[type];
-                        return (
-                          <div key={type} className="flex items-center gap-2">
-                            <span className="text-xs w-16 font-medium text-gray-600">{type}</span>
-                            <div className="flex-1 bg-gray-200 h-5 rounded-full overflow-hidden">
-                              <div 
-                                className="bg-purple-500 h-5 rounded-full flex items-center justify-end pr-2"
-                                style={{ width: `${percentage * 100}%` }}
-                              >
-                                {percentage >= 0.15 && (
-                                  <span className="text-xs text-white font-medium">
-                                    {Math.round(percentage * 100)}%
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <span className="text-xs w-12 text-right text-gray-500">
-                              {count}건
-                            </span>
-                          </div>
-                        );
-                      })}
-                  </div>
-                  
-                  {/* 특별 노트 */}
-                  {aiResult.search_result_types.note && (
-                    <div className="flex items-start gap-2 p-3 bg-purple-100 rounded-lg">
-                      <span className="text-lg">💡</span>
-                      <p className="text-sm text-purple-800 flex-1">
-                        {aiResult.search_result_types.note}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* 리스크 */}
-              {risk && (
-                <div className="mb-4">
-                  <p className={`font-bold ${risk.text} text-lg`}>
-                    리스크: {aiResult.overall_risk_level}
-                  </p>
-                  <div className="bg-gray-200 h-3 rounded-full">
-                    <div
-                      className={`${risk.bar} h-3 rounded-full transition-all`}
-                      style={{ width: `${risk.score}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* 요약 */}
-              <div className="text-sm mb-4 p-3 bg-yellow-50 rounded border">
-                {highlightSummary(aiResult.summary)}
-              </div>
-
-              {/* 유사 판례 */}
-              <button
-                onClick={() => setShowCases(!showCases)}
-                className="text-blue-600 font-medium hover:underline mb-2"
-              >
-                {showCases ? "📂 판례 접기" : `📂 유사 판례 ${aiResult.similar_cases.length}건 보기`}
-              </button>
-
-              {showCases &&
-                aiResult.similar_cases.map((c, i) => (
-                  <div
-                    key={i}
-                    className="border p-3 mt-2 rounded-lg cursor-pointer hover:bg-gray-50 transition"
-                    onClick={() => handleSelectCase(c)}
-                  >
-                    <div className="flex justify-between items-start">
-                      <strong className="text-sm">{c.case_name}</strong>
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                        {c.case_type_label}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {c.court} · 유사도 {Math.round(c.similarity * 100)}%
-                    </p>
-                  </div>
-                ))}
-
-              {/* 저장 */}
-              <div className="flex justify-between items-center mt-4 pt-4 border-t">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={isFavorite}
-                    onChange={(e) => setIsFavorite(e.target.checked)}
-                  />
-                  <span className="text-sm">즐겨찾기</span>
-                </label>
+      <label style={{ display: "block", marginTop: 8 }}>
+        <input
+          type="checkbox"
+          checked={yusaMark === 1}
+          onChange={(e) => setYusaMark(e.target.checked ? 1 : 0)}
+        />
+        즐겨찾기
+      </label>
 
                 <button
                   onClick={handleSaveYusa}
