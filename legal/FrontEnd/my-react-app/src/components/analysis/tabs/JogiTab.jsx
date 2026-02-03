@@ -6,18 +6,25 @@ import axios from "axios";
  * - 자체 분석 버튼 보유
  * - /analyze API 호출 후 summary 사용
  * - AI 요약 및 해결책 표시
+ * - DB 저장 기능 포함
  * 
  * Props:
  *   - inputText: 분석할 텍스트 (부모에서 전달)
  */
 
 const API_BASE = "http://localhost:8000";
+const SPRING_API_BASE = "http://localhost:8484";  // Spring Boot 저장 API
 
 export default function SolutionTab({ inputText }) {
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [copied, setCopied] = useState(false);
+
+    // 저장 관련 상태
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [saveError, setSaveError] = useState(null);
 
     const handleAnalyze = async () => {
         if (!inputText || !inputText.trim()) {
@@ -32,6 +39,7 @@ export default function SolutionTab({ inputText }) {
 
         setLoading(true);
         setError(null);
+        setSaved(false);  // 다시 분석하면 저장 상태 초기화
 
         try {
             console.log("[해결전략 탭] 분석 시작...");
@@ -46,7 +54,8 @@ export default function SolutionTab({ inputText }) {
                 summary: analyzeRes.data.summary,
                 overallRisk: analyzeRes.data.overall_risk_level,
                 feedback: riskRes.data?.feedback,
-                classification: analyzeRes.data.classification
+                classification: analyzeRes.data.classification,
+                win_rate: riskRes.data?.win_rate  // 승소율 저장 (jogi_winrate용)
             });
 
             console.log("[해결전략 탭] 분석 완료");
@@ -56,6 +65,39 @@ export default function SolutionTab({ inputText }) {
             setError(err.response?.data?.detail || "해결 전략 분석 중 오류가 발생했습니다.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    // DB 저장 함수
+    const handleSave = async () => {
+        if (!result) return;
+
+        setSaving(true);
+        setSaveError(null);
+
+        try {
+            console.log("[해결전략 탭] DB 저장 시작...");
+
+            // Spring Boot API로 저장
+            await axios.post(`${SPRING_API_BASE}/api/jogi/save`, {
+                jogi_input: inputText,
+                jogi_output: JSON.stringify(result),
+                jogi_winrate: Math.round(result.win_rate || 0),  // 정수로 변환
+                jogi_mark: 0
+            });
+
+            setSaved(true);
+            console.log("[해결전략 탭] DB 저장 완료");
+
+        } catch (err) {
+            console.error("[해결전략 탭] 저장 오류:", err);
+            if (err.response?.status === 401) {
+                setSaveError("로그인이 필요한 서비스입니다.");
+            } else {
+                setSaveError(err.response?.data?.message || "저장 중 오류가 발생했습니다.");
+            }
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -156,6 +198,21 @@ export default function SolutionTab({ inputText }) {
                 <h3 className="text-lg font-semibold text-slate-800">💡 해결 전략 분석 결과</h3>
                 <div className="flex gap-2">
                     <button
+                        onClick={handleSave}
+                        disabled={saving || saved}
+                        className={`
+                            px-4 py-2 text-sm rounded-lg transition flex items-center gap-1
+                            ${saved
+                                ? "bg-green-100 text-green-700"
+                                : saving
+                                    ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                                    : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                            }
+                        `}
+                    >
+                        {saved ? "✅ 저장됨" : saving ? "⏳ 저장 중..." : "💾 저장"}
+                    </button>
+                    <button
                         onClick={handleCopy}
                         className="px-4 py-2 text-sm bg-slate-50 text-slate-600 rounded-lg hover:bg-slate-100 transition"
                     >
@@ -169,6 +226,13 @@ export default function SolutionTab({ inputText }) {
                     </button>
                 </div>
             </div>
+
+            {/* 저장 에러 메시지 */}
+            {saveError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-600">
+                    ⚠️ {saveError}
+                </div>
+            )}
 
             {/* 위험 수준 */}
             <div className={`rounded-xl p-5 border ${riskStyle.bg} ${riskStyle.border}`}>

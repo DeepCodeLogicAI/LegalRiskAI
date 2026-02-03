@@ -6,17 +6,24 @@ import axios from "axios";
  * - 자체 분석 버튼 보유
  * - /risk-analyze API 호출
  * - 승소율, 위험도, 형량, 벌금 표시
+ * - DB 저장 기능 포함
  * 
  * Props:
  *   - inputText: 분석할 텍스트 (부모에서 전달)
  */
 
 const API_BASE = "http://localhost:8000";
+const SPRING_API_BASE = "http://localhost:8484";  // Spring Boot 저장 API
 
 export default function RiskTab({ inputText }) {
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+
+    // 저장 관련 상태
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [saveError, setSaveError] = useState(null);
 
     const handleAnalyze = async () => {
         if (!inputText || !inputText.trim()) {
@@ -31,6 +38,7 @@ export default function RiskTab({ inputText }) {
 
         setLoading(true);
         setError(null);
+        setSaved(false);  // 다시 분석하면 저장 상태 초기화
 
         try {
             console.log("[리스크 탭] 분석 시작...");
@@ -47,6 +55,38 @@ export default function RiskTab({ inputText }) {
             setError(err.response?.data?.detail || "위험도 분석 중 오류가 발생했습니다.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    // DB 저장 함수
+    const handleSave = async () => {
+        if (!result) return;
+
+        setSaving(true);
+        setSaveError(null);
+
+        try {
+            console.log("[리스크 탭] DB 저장 시작...");
+
+            // Spring Boot API로 저장
+            await axios.post(`${SPRING_API_BASE}/api/law/save`, {
+                law_input: inputText,
+                law_output: JSON.stringify(result),
+                law_mark: 0
+            });
+
+            setSaved(true);
+            console.log("[리스크 탭] DB 저장 완료");
+
+        } catch (err) {
+            console.error("[리스크 탭] 저장 오류:", err);
+            if (err.response?.status === 401) {
+                setSaveError("로그인이 필요한 서비스입니다.");
+            } else {
+                setSaveError(err.response?.data?.message || "저장 중 오류가 발생했습니다.");
+            }
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -146,13 +186,37 @@ export default function RiskTab({ inputText }) {
         <div className="space-y-6 p-6">
             <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-slate-800">⚠️ 법적 리스크 분석 결과</h3>
-                <button
-                    onClick={handleAnalyze}
-                    className="px-4 py-2 text-sm bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition"
-                >
-                    🔄 다시 분석
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || saved}
+                        className={`
+                            px-4 py-2 text-sm rounded-lg transition flex items-center gap-1
+                            ${saved
+                                ? "bg-green-100 text-green-700"
+                                : saving
+                                    ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                                    : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                            }
+                        `}
+                    >
+                        {saved ? "✅ 저장됨" : saving ? "⏳ 저장 중..." : "💾 저장"}
+                    </button>
+                    <button
+                        onClick={handleAnalyze}
+                        className="px-4 py-2 text-sm bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition"
+                    >
+                        🔄 다시 분석
+                    </button>
+                </div>
             </div>
+
+            {/* 저장 에러 메시지 */}
+            {saveError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-600">
+                    ⚠️ {saveError}
+                </div>
+            )}
 
             {/* 승소율 */}
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-100">
@@ -166,7 +230,7 @@ export default function RiskTab({ inputText }) {
                 <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
                     <div
                         className={`h-full rounded-full transition-all ${(win_rate || 0) >= 70 ? "bg-green-500" :
-                                (win_rate || 0) >= 40 ? "bg-amber-500" : "bg-red-500"
+                            (win_rate || 0) >= 40 ? "bg-amber-500" : "bg-red-500"
                             }`}
                         style={{ width: `${win_rate || 0}%` }}
                     />

@@ -6,18 +6,25 @@ import axios from "axios";
  * - 자체 분석 버튼 보유
  * - /analyze API 호출 후 similar_cases만 사용
  * - 유사도 높은 판례 목록 표시
+ * - DB 저장 기능 포함
  * 
  * Props:
  *   - inputText: 분석할 텍스트 (부모에서 전달)
  */
 
 const API_BASE = "http://localhost:8000";
+const SPRING_API_BASE = "http://localhost:8484";  // Spring Boot 저장 API
 
 export default function SimilarTab({ inputText }) {
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [selectedCase, setSelectedCase] = useState(null);  // 상세보기용
+
+    // 저장 관련 상태
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [saveError, setSaveError] = useState(null);
 
     const handleAnalyze = async () => {
         if (!inputText || !inputText.trim()) {
@@ -32,6 +39,7 @@ export default function SimilarTab({ inputText }) {
 
         setLoading(true);
         setError(null);
+        setSaved(false);  // 다시 분석하면 저장 상태 초기화
 
         try {
             console.log("[유사판례 탭] 분석 시작...");
@@ -49,6 +57,38 @@ export default function SimilarTab({ inputText }) {
             setError(err.response?.data?.detail || "유사 판례 검색 중 오류가 발생했습니다.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    // DB 저장 함수
+    const handleSave = async () => {
+        if (!result) return;
+
+        setSaving(true);
+        setSaveError(null);
+
+        try {
+            console.log("[유사판례 탭] DB 저장 시작...");
+
+            // Spring Boot API로 저장
+            await axios.post(`${SPRING_API_BASE}/api/yusa/save`, {
+                yusa_input: inputText,
+                yusa_output: JSON.stringify(result),
+                yusa_mark: 0
+            });
+
+            setSaved(true);
+            console.log("[유사판례 탭] DB 저장 완료");
+
+        } catch (err) {
+            console.error("[유사판례 탭] 저장 오류:", err);
+            if (err.response?.status === 401) {
+                setSaveError("로그인이 필요한 서비스입니다.");
+            } else {
+                setSaveError(err.response?.data?.message || "저장 중 오류가 발생했습니다.");
+            }
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -144,13 +184,37 @@ export default function SimilarTab({ inputText }) {
                 <h3 className="text-lg font-semibold text-slate-800">
                     📚 유사 판례 {result.length}건
                 </h3>
-                <button
-                    onClick={handleAnalyze}
-                    className="px-4 py-2 text-sm bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition"
-                >
-                    🔄 다시 검색
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || saved}
+                        className={`
+                            px-4 py-2 text-sm rounded-lg transition flex items-center gap-1
+                            ${saved
+                                ? "bg-green-100 text-green-700"
+                                : saving
+                                    ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                                    : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                            }
+                        `}
+                    >
+                        {saved ? "✅ 저장됨" : saving ? "⏳ 저장 중..." : "💾 저장"}
+                    </button>
+                    <button
+                        onClick={handleAnalyze}
+                        className="px-4 py-2 text-sm bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition"
+                    >
+                        🔄 다시 검색
+                    </button>
+                </div>
             </div>
+
+            {/* 저장 에러 메시지 */}
+            {saveError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-600">
+                    ⚠️ {saveError}
+                </div>
+            )}
 
             {result.length === 0 ? (
                 <div className="bg-slate-50 rounded-xl p-8 text-center">
@@ -192,10 +256,10 @@ export default function SimilarTab({ inputText }) {
                                     {caseItem.decision_type}
                                 </span>
                                 <span className={`px-2.5 py-1 text-xs rounded-full ${caseItem.decision_result?.includes("승소") || caseItem.decision_result?.includes("인용")
-                                        ? "bg-green-100 text-green-700"
-                                        : caseItem.decision_result?.includes("패소") || caseItem.decision_result?.includes("기각")
-                                            ? "bg-red-100 text-red-700"
-                                            : "bg-gray-100 text-gray-600"
+                                    ? "bg-green-100 text-green-700"
+                                    : caseItem.decision_result?.includes("패소") || caseItem.decision_result?.includes("기각")
+                                        ? "bg-red-100 text-red-700"
+                                        : "bg-gray-100 text-gray-600"
                                     }`}>
                                     {caseItem.decision_result}
                                 </span>
